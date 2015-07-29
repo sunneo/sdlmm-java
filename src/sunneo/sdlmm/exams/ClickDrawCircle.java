@@ -45,9 +45,6 @@ public class ClickDrawCircle extends SDLMMFrame {
             @Override
             public void onClick(int x, int y, int btn, boolean ison) {
                 clicking = ison;
-                if (isHit(x, y, 0, 0, 120, 20)) {
-                    messageBox.okCancel("ouch", "YOU Clicked ME");
-                }
                 mouseFnc(x, y, clicking);
             }
         });

@@ -9,7 +9,6 @@ import javax.swing.JOptionPane;
 
 import sunneo.sdlmm.interfaces.SDLMMInterface;
 
-
 public abstract class SDLMMFrame extends JFrame implements Runnable,
         SDLMMInterface {
     /**
@@ -128,6 +127,10 @@ public abstract class SDLMMFrame extends JFrame implements Runnable,
 
         public boolean okCancel(String title, String msg) {
             return JOptionPane.OK_OPTION == JOptionPane.showOptionDialog(parent, msg, title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, JOptionPane.CANCEL_OPTION);
+        }
+
+        public String input(String title, String msg) {
+            return (String) JOptionPane.showInputDialog(parent, msg, title, JOptionPane.INFORMATION_MESSAGE);
         }
 
         public MessageBoxInterface(SDLMMFrame parent) {
