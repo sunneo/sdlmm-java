@@ -1,5 +1,7 @@
 package sunneo.sdlmm.exams;
 
+import java.io.IOException;
+
 import sunneo.sdlmm.implement.SDLMMFrame;
 
 public class GUIHanoiTowerGame extends SDLMMFrame {
@@ -60,33 +62,23 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 	}
 
 	public static void moveHanoi(int from, int to, int[] a, int[] b, int[] c) {
+		if (from == to)
+			return;
 		int[] fromArray = selectTower(from, a, b, c);
-
-		// 用from選擇來源fromArray
-		// 用to選擇目標toArray
 		int[] toArray = selectTower(to, a, b, c);
-		// 檢查來源是否空的,空的就不搬動
-		// 取出from的頂端位置
 		int fromTopIdx = getTopIndex(fromArray);
 		if (fromTopIdx == -1) {
 			return;
 		}
 		int topValue = fromArray[fromTopIdx];
-		// 取出to的頂端位置
 		int toTopIdx = getTopIndex(toArray);
-		// 檢查fromArray頂端內容是否超過toArray的頂端,超過就不合規則
 		if (toTopIdx != -1) {
 			if (topValue > toArray[toTopIdx]) {
 				return;
 			}
-			fromArray[fromTopIdx] = 0;
-			toArray[toTopIdx + 1] = topValue;
-		} else {
-			fromArray[fromTopIdx] = 0;
-			toArray[toTopIdx + 1] = topValue;
 		}
-		// 將fromArray頂端設為0 把值移動到toArray頂端+1位置
-
+		fromArray[fromTopIdx] = 0;
+		toArray[toTopIdx + 1] = topValue;
 	}
 
 	public void showMessage(String str) {
@@ -141,8 +133,15 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 		return showSelection(xCenters, 250);
 	}
 
+	int[] bg;
+
+	long startTimeMillis = 0;
+
 	public void drawHanois(int[] a, int[] b, int[] c) {
-		fillRect(0, 0, SCREEN_X, SCREEN_Y, 0xffffffff);
+		drawPixels(bg, 0, 0, 500, 400);
+		float timeElapsed = (((float) (System.currentTimeMillis() - startTimeMillis) / 1000));
+		drawString(String.format("時間: %4.1f 秒", timeElapsed), 200, 0,
+				0xff0000ff);
 		drawOneHanoi(a, 100, 100, 25, 20, 5);
 		drawOneHanoi(b, 250, 100, 25, 20, 5);
 		drawOneHanoi(c, 400, 100, 25, 20, 5);
@@ -152,6 +151,7 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 		int[] a = new int[] { 5, 4, 3, 2, 1 };
 		int[] b = new int[] { 0, 0, 0, 0, 0 };
 		int[] c = new int[] { 0, 0, 0, 0, 0 };
+		startTimeMillis = System.currentTimeMillis();
 		while (!checkHanoiEnd(c)) {
 			drawHanois(a, b, c);
 			showMessage("請選擇搬動的來源");
@@ -189,6 +189,12 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 					pressKey = key;
 			}
 		});
+		try {
+			bg = readImage("bg.bmp");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	public static void main(String[] argv) {
