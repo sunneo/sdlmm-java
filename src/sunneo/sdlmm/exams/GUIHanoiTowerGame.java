@@ -12,7 +12,7 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 
 	public static boolean checkHanoiEnd(int[] c) {
 		int len = c.length;
-		int maxValue = len + 1;
+		int maxValue = len;
 		int[] cloneC = new int[len];
 		for (int i = 0; i < c.length; ++i) {
 			cloneC[i] = maxValue;
@@ -148,9 +148,9 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 	}
 
 	public void run() {
-		int[] a = new int[] { 5, 4, 3, 2, 1 };
-		int[] b = new int[] { 0, 0, 0, 0, 0 };
-		int[] c = new int[] { 0, 0, 0, 0, 0 };
+		int[] a = new int[] { 3, 2, 1 };
+		int[] b = new int[] { 0, 0, 0 };
+		int[] c = new int[] { 0, 0, 0 };
 		startTimeMillis = System.currentTimeMillis();
 		while (!checkHanoiEnd(c)) {
 			drawHanois(a, b, c);
@@ -176,6 +176,9 @@ public class GUIHanoiTowerGame extends SDLMMFrame {
 			from = -1;
 			to = -1;
 		}
+		drawHanois(a, b, c);
+		showMessage("¹CÀ¸µ²§ô");
+		flush();
 	}
 
 	public GUIHanoiTowerGame() {
