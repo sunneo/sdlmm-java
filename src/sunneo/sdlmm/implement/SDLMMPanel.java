@@ -224,7 +224,8 @@ public abstract class SDLMMPanel extends JPanel implements SDLMMInterface {
 
 		@Override
 		public void drawPixels(int[] pixels, int x, int y, int width, int height) {
-			image[toDraw].getRaster().setPixels(x, y, width, height, pixels);
+			image[toDraw].setRGB(x, y, width, height, pixels, 0, width);
+
 			if (!this.isDoubleBuffered()) {
 				this.repaint();
 			}
@@ -259,8 +260,9 @@ public abstract class SDLMMPanel extends JPanel implements SDLMMInterface {
 			BufferedImage image = javax.imageio.ImageIO
 					.read(new File(filename));
 			int[] ret = new int[image.getWidth() * image.getHeight()];
-			return image.getRaster().getPixels(0, 0, image.getWidth(),
-					image.getHeight(), ret);
+			image.getRGB(0, 0, image.getWidth(), image.getHeight(), ret, 0,
+					image.getWidth());
+			return ret;
 		}
 
 		@Override
