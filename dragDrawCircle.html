@@ -1,0 +1,113 @@
+<html><head><title>Click and Drag for Drawing Circle</title></head><body>
+<script language="javascript">
+
+var canvas=null;
+var ctx=null;
+var drawCtx=null;
+var selectCtx=0;
+var MAX_CIRCLE=100;
+var MAX_RADIUS=100;
+var lastSelectCircle=0;
+var mouseStatus=0; // 0 = up, 1 = down
+/**************************************
+ *  Helper Functions
+ */
+function circle_new(x,y,r,color,available){
+   var ret=new Object();
+   ret.x=x;
+   ret.y=y;
+   ret.r=r;
+   ret.color=color;
+   ret.available=available;
+   return ret;
+}
+function circles_new(cnt){
+   var ret = Array(cnt);
+   for(var i=0; i<cnt; ++i){
+      ret[i]=circle_new(0,0,0,'#000000',false);
+   }
+   return ret;
+}
+var circles=circles_new(MAX_CIRCLE);
+/**************************************
+ *
+ *  Helper Functions
+ */
+function drawCircle(canvasCtx,x,y,r,c){
+   canvasCtx.beginPath();
+   canvasCtx.strokeStyle=c;
+   canvasCtx.lineWidth=1;
+   canvasCtx.arc(x,y,r,0, 2 * Math.PI, false);
+   canvasCtx.stroke();
+}
+function drawText(canvasCtx,x,y,f,str,c){
+   canvasCtx.font=f;
+   canvasCtx.fillStyle=c;
+   canvasCtx.fillText(str,x,y);
+}
+function fillrect(canvasCtx,x,y,w,h,c){
+   canvasCtx.fillStyle=c;
+   canvasCtx.fillRect(x,y,w,h);
+}
+/**************************************/
+function onMouseDown(x,y,on){
+   //console.log('onMouseDown:x='+x+'y='+y+'on='+on);
+   mouseStatus=on;  
+   if(on){
+      select=lastSelectCircle%circles.length;
+	  circles[select].x=x;
+	  circles[select].y=y;
+	  circles[select].r=1;
+	  circles[select].color='#'+Math.floor(Math.random()*16777215).toString(16);
+	  circles[select].available=true;
+	  ++lastSelectCircle;
+   }
+}
+function onMouseMove(x,y,on){   onMouseDown(x,y,on); }
+function flushscreen(){
+   canvas[selectCtx].style['display']='none'; // hide current
+   selectCtx=(selectCtx+1)%ctx.length;// select another
+   canvas[selectCtx].style['display']='block'; // show another 
+   drawCtx=ctx[(selectCtx+1)%ctx.length];
+}
+function onDraw(){// draw on another   
+   fillrect(drawCtx,0,0,screen.width,screen.height,'#FFFFFF');
+   fillrect(drawCtx,0,0,320,20,'#000000');
+   drawText(drawCtx,20,20,'20px Arial','Click/Drag Mouse to draw circle','#FFFFFF');
+   for(var i=0; i<circles.length; ++i){
+      if(circles[i].available){
+	     drawCircle(drawCtx,circles[i].x,circles[i].y,circles[i].r,circles[i].color);
+		 ++circles[i].r;
+		 if(circles[i].r > MAX_RADIUS){
+		    circles[i].available=false;
+		 }
+	  }
+   }
+   flushscreen();
+}
+function mouseDown(e){   onMouseDown(e.clientX,e.clientY,1); }
+function mouseUp(e){   onMouseDown(e.clientX,e.clientY,0); }
+function mouseMove(e){ onMouseMove(e.clientX,e.clientY,mouseStatus); }
+function main(){
+   var div=document.createElement('div');
+   document.body.appendChild(div);
+   div.setAttribute('id','drawable');
+   div.style['height']='100%';
+   div.style['width']='100%';
+   canvas =Array(document.createElement('canvas'),document.createElement('canvas'));
+   canvas[0].width=canvas[1].width=screen.width;
+   canvas[0].height=canvas[1].height=screen.height;
+   canvas[1].style['display']='none';
+   div.appendChild(canvas[0]);
+   div.appendChild(canvas[1]);
+   ctx=Array(canvas[0].getContext("2d"),canvas[1].getContext("2d"));
+   div.setAttribute('onmousedown','mouseDown(event)');
+   div.setAttribute('onmouseup','mouseUp(event)');
+   div.setAttribute('onmousemove','mouseMove(event)');
+   drawCtx=ctx[(selectCtx+1)%ctx.length];
+   setInterval(onDraw,4);   
+}
+main();
+</script>
+</body>
+</html>
