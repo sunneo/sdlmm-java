@@ -1,0 +1,288 @@
+<html><head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>河內塔-SDLMM-Javascript</title></head><body>
+<script language="javascript">
+
+var canvas=null;
+var ctx=null;
+var drawCtx=null;
+var selectCtx=0;
+var mouseStatus=0; // 0 = up, 1 = down
+var pressKey=0;
+/**************************************
+ *
+ *  Helper Functions
+ */
+function drawCircle(canvasCtx,x,y,r,c){
+   canvasCtx.beginPath();
+   canvasCtx.strokeStyle=c;
+   canvasCtx.lineWidth=1;
+   canvasCtx.arc(x,y,r,0, 2 * Math.PI, false);
+   canvasCtx.stroke();
+}
+function drawText(canvasCtx,x,y,f,str,c){
+   canvasCtx.font=f;
+   canvasCtx.fillStyle=c;
+   canvasCtx.fillText(str,x,y);
+}
+function drawString(drawCtx,str,x,y,c){
+   drawText(drawCtx,x,20+y,'20px Arial',str,c);
+}
+function fillrect(canvasCtx,x,y,w,h,c){
+   canvasCtx.fillStyle=c;
+   canvasCtx.fillRect(x,y,w,h);
+}
+function drawLine(canvasCtx,x1,y1,x2,y2,c){
+   canvasCtx.beginPath();
+   canvasCtx.fillStyle=c;
+   canvasCtx.moveTo(x1,y1);
+   canvasCtx.lineTo(x2,y2);
+   canvasCtx.stroke();
+}
+
+function flushscreen(){
+   canvas[selectCtx].style['display']='none'; // hide current
+   selectCtx=(selectCtx+1)%ctx.length;// select another
+   canvas[selectCtx].style['display']='block'; // show another 
+   drawCtx=ctx[(selectCtx+1)%ctx.length];
+}
+
+////////////////////////////////////////////////////////////////////
+function checkHanoiEnd(ar) {
+   var len = ar.length;
+   var maxValue = len;
+   var cloneC = Array(len);
+   for (var i = 0; i < c.length; ++i) {
+	 cloneC[i] = maxValue;
+	 --maxValue;
+   }
+   for (var i = 0; i < c.length; ++i)
+	 if (c[i] != cloneC[i])
+		return false;
+   return true;
+}
+function getTopIndex(tower) {
+	for (var i = tower.length - 1; i >= 0; --i)
+		if (tower[i] != 0) 
+		   return i;
+	return -1;
+}
+function selectTower(selection, a,b,c) {
+		switch (selection) {
+		case 0: return a;
+		case 1: return b;
+		case 2: return c;
+		}
+		return null;
+}
+var colorcodes=Array(5);
+colorcodes[0]='#0000aa';
+colorcodes[1]='#0000bb';
+colorcodes[2]='#0000cc';
+colorcodes[3]='#0000dd';
+colorcodes[4]='#0000ee';
+function drawOneHanoi(drawCtx,arr,x,y,widthPerStack,heightPerStack,stickWidth) {
+    
+	fillrect(drawCtx, x, y, stickWidth, arr.length * heightPerStack, '#000000');
+	var topIdx = getTopIndex(arr);
+	var bottom = y + arr.length * heightPerStack;
+	if (topIdx == -1) return;
+	for (var i = 0; i <= topIdx; ++i) {
+		var width = widthPerStack * arr[i];
+		var colorcode=colorcodes[arr[i]-1];	
+		fillrect(drawCtx,x - width / 2, bottom - heightPerStack * (i + 1), width,heightPerStack, colorcode);
+	}
+}
+
+
+function moveHanoi(from,to,a,b,c) {
+	if (from == to)	return;
+	var fromArray = selectTower(from, a, b, c);
+	var toArray = selectTower(to, a, b, c);
+	var fromTopIdx = getTopIndex(fromArray);
+	if (fromTopIdx == -1) return;
+	var topValue = fromArray[fromTopIdx];
+	var toTopIdx = getTopIndex(toArray);
+	if (toTopIdx != -1) 
+		if (topValue > toArray[toTopIdx])
+			return;
+	fromArray[fromTopIdx] = 0;
+	toArray[toTopIdx + 1] = topValue;
+}
+function showMessage(drawCtx,str) {
+	fillrect(drawCtx,0, 0, 200, 30, '#ffffff');
+	drawString(drawCtx,str, 0, 0, '#000000');
+}
+var from = -1;
+var to = -1;
+var currentIdx = 0;
+var waitSelection = false;
+var pressKey = 0;
+function onKeyFnc(k,on){ 
+   if(on) {
+      pressKey=k; 
+   }
+   document.getElementById('txtinput').focus(); 
+}
+function onMouseDown(x,y,on){document.getElementById('txtinput').focus(); }
+function onMouseMove(x,y,on){}
+
+
+
+
+function showSelection2(drawCtx,xCenters,y) {
+	if (!waitSelection) return -1;
+	var centerX = xCenters[currentIdx];
+	var leftX = xCenters[currentIdx] - 10;
+	var rightX = xCenters[currentIdx] + 10;
+	drawLine(drawCtx,centerX, y, leftX, y + 20, '#0000ff');
+	drawLine(drawCtx,leftX, y + 20, rightX, y + 20, '#0000ff');
+	drawLine(drawCtx,centerX, y, rightX, y + 20, '#0000ff');
+	switch (pressKey) {
+	case 37: // left
+		currentIdx = currentIdx - 1;
+		if (currentIdx < 0) currentIdx = 2;
+		break;
+	case 39: // right
+		currentIdx = currentIdx + 1;
+		if (currentIdx > 2)	currentIdx = 0;
+		break;
+	case 10: case 32:// enter and space
+		waitSelection = false;
+		pressKey = 0;
+		return currentIdx;
+	case '1': case '2': case '3':
+		currentIdx = pressKey - '0';
+		break;
+	}
+	pressKey = 0;
+	return -1;
+
+}
+
+function showSelection(drawCtx) {
+	var xCenters = Array(3);
+	xCenters[0]=100;
+	xCenters[1]=250;
+	xCenters[2]=400;
+	return showSelection2(drawCtx,xCenters, 250);
+}
+var starttime=new Date().getTime();
+function drawHanois(drawCtx,a,b,c) {
+	//drawPixels(bg, 0, 0, 500, 400);
+	var timeElapsed = (new Date().getTime()-starttime)/1000.0;
+	var str = "時間:"+timeElapsed.toFixed(1)+"秒";
+	fillrect(drawCtx,0, 30, 200, 30, '#ffffff');
+    drawString(drawCtx,str,0,30,'#0000FF');
+	drawOneHanoi(drawCtx,a, 100, 100, 25, 20, 5);
+	drawOneHanoi(drawCtx,b, 250, 100, 25, 20, 5);
+	drawOneHanoi(drawCtx,c, 400, 100, 25, 20, 5);
+}
+var init=false;
+var a=Array(5);
+var b=Array(5);
+var c=Array(5);
+
+function run(drawCtx) {
+    if(!init){
+	   console.log('inited');
+	   var maxval=5;
+       a = Array(maxval);
+       b = Array(maxval);
+       c = Array(maxval);
+       for(var i=0; i<maxval; ++i){
+         a[i]=maxval-i;
+         b[i]=0;
+         c[i]=0;
+       }
+	   init=true;
+	}
+	//startTimeMillis = System.currentTimeMillis();
+	if (!checkHanoiEnd(c)) {
+		drawHanois(drawCtx,a, b, c);
+		showMessage(drawCtx,"請選擇搬動的來源");
+		if (from == -1) {
+			waitSelection = true;
+			from = showSelection(drawCtx);
+			return;
+		}
+		var n1 = from;
+		showMessage(drawCtx,"要搬到哪去 ");
+		if (to == -1) {
+			waitSelection = true;
+			to = showSelection(drawCtx);
+			return;
+		}
+		var n2 = to;
+		moveHanoi(n1, n2, a, b, c);
+		from = -1;
+		to = -1;
+	}
+	else{
+	   console.log('ended');
+	   drawHanois(drawCtx,a, b, c);
+	   showMessage(drawCtx,"遊戲結束");
+	   //flushscreen();
+	}
+}
+/////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function onDraw(){// draw on another   
+   fillrect(drawCtx,0,0,screen.width,screen.height,'#FFFFFF');
+   run(drawCtx);
+   flushscreen();
+}
+function mouseDown(e){   onMouseDown(e.clientX,e.clientY,1); }
+function mouseUp(e){   onMouseDown(e.clientX,e.clientY,0); }
+function mouseMove(e){ onMouseMove(e.clientX,e.clientY,mouseStatus); }
+function keyDown(e){ onKeyFnc(e.keyCode,1); }
+function keyUp(e){ onKeyFnc(e.keyCode,0); }
+function main(){
+   var input=document.createElement('input');
+   input.style['display']='block';
+   input.style['width']='0px';
+   input.style['height']='0px';
+   input.style['opacity']='0';
+   input.setAttribute('type','text');
+   input.setAttribute('id','txtinput');
+   document.body.appendChild(input);
+   var div=document.createElement('div');
+   document.body.appendChild(div);
+   div.setAttribute('id','drawable');
+   div.style['height']='700';
+   div.style['width']='400';
+   canvas =Array(document.createElement('canvas'),document.createElement('canvas'));
+   canvas[0].width=canvas[1].width=700;
+   canvas[0].height=canvas[1].height=400;
+   canvas[1].style['display']='none';
+   div.appendChild(canvas[0]);
+   div.appendChild(canvas[1]);
+   
+   
+   ctx=Array(canvas[0].getContext("2d"),canvas[1].getContext("2d"));
+   div.setAttribute('onmousedown','mouseDown(event)');
+   div.setAttribute('onmouseup','mouseUp(event)');
+   div.setAttribute('onmousemove','mouseMove(event)');
+   input.setAttribute('onkeydown','keyDown(event)');
+   input.setAttribute('onkeyup','keyUp(event)');
+   input.focus();
+   drawCtx=ctx[(selectCtx+1)%ctx.length];
+   setInterval(onDraw,4);   
+}
+main();
+</script>
+</body>
+</html>
