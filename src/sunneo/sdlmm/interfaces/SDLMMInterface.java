@@ -40,7 +40,7 @@ public interface SDLMMInterface {
      * @param f
      *            font object
      */
-    public abstract void setFont(Font f);
+    public abstract void setTextFont(Font f);
 
     /**
      * set the curretn front by name for drawing string
@@ -49,7 +49,7 @@ public interface SDLMMInterface {
      *            name of font
      * 
      */
-    public void setFont(String f);
+    public void setTextFont(String f);
 
     /**
      * set mouse-motion event handler
