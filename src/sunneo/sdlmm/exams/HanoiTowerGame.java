@@ -5,7 +5,7 @@ import java.util.Scanner;
 public class HanoiTowerGame {
 	public static boolean checkHanoiEnd(int[] c) {
 		int len = c.length;
-		int maxValue = len + 1;
+		int maxValue = len;
 		int[] cloneC = new int[len];
 		for (int i = 0; i < c.length; ++i) {
 			cloneC[i] = maxValue;
