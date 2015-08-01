@@ -3,52 +3,118 @@
 <title>河內塔-SDLMM-Javascript</title></head><body>
 <script language="javascript">
 
-var canvas=null;
-var ctx=null;
-var drawCtx=null;
-var selectCtx=0;
+///////////////////////////////////////////////////////////////////////////////////////////////
+function sdlmm_create(){
+   var sdlmmObject = new Object();
+   sdlmmObject.canvas=null;
+   sdlmmObject.ctx=null;
+   sdlmmObject.drawCtx=null;
+   sdlmmObject.selectCtx=0;
+   sdlmmObject.onMouseDownListener = null;
+   sdlmmObject.onMouseMoveListener = null;
+   sdlmmObject.onKeyboardListener = null;
+   sdlmmObject.onDrawFunctionListener = null;
+   sdlmmObject.defaultIntervalID=null;
+   function drawCircle(canvasCtx,x,y,r,c){
+      canvasCtx.beginPath();
+      canvasCtx.strokeStyle=c;
+      canvasCtx.lineWidth=1;
+      canvasCtx.arc(x,y,r,0, 2 * Math.PI, false);
+      canvasCtx.stroke();
+   }
+   function drawText(canvasCtx,x,y,f,str,c){
+      canvasCtx.font=f;
+      canvasCtx.fillStyle=c;
+      canvasCtx.fillText(str,x,y);
+   } 
+   var font='20px Arial';
+   sdlmmObject.font=font;
+   function drawString(drawCtx,str,x,y,c){
+      drawText(drawCtx,x,20+y,sdlmmObject.font,str,c);
+   }
+   function fillrect(canvasCtx,x,y,w,h,c){
+      canvasCtx.fillStyle=c;
+      canvasCtx.fillRect(x,y,w,h);
+   }
+   function drawLine(canvasCtx,x1,y1,x2,y2,c){
+      canvasCtx.beginPath();
+      canvasCtx.fillStyle=c;
+      canvasCtx.moveTo(x1,y1);
+      canvasCtx.lineTo(x2,y2);
+      canvasCtx.stroke();
+   }
+   
+   function flushscreen(){
+      sdlmmObject.canvas[sdlmmObject.selectCtx].style['display']='none'; // hide current
+      sdlmmObject.selectCtx=(sdlmmObject.selectCtx+1)%sdlmmObject.ctx.length;// select another
+      sdlmmObject.canvas[sdlmmObject.selectCtx].style['display']='block'; // show another 
+      sdlmmObject.drawCtx=sdlmmObject.ctx[(sdlmmObject.selectCtx+1)%sdlmmObject.ctx.length];
+   }
+   
+   function mouseDown(e){ if(sdlmmObject.onMouseDownListener!=null)  sdlmmObject.onMouseDownListener(e.clientX,e.clientY,1); }
+   function mouseUp(e){   if(sdlmmObject.onMouseDownListener!=null) sdlmmObject.onMouseDownListener(e.clientX,e.clientY,0); }
+   function mouseMove(e){ if(sdlmmObject.onMouseMoveListener!=null) sdlmmObject.onMouseMoveListener(e.clientX,e.clientY,mouseStatus); }
+   function keyDown(e){ if(sdlmmObject.onKeyboardListener!=null) sdlmmObject.onKeyboardListener(e.keyCode,1); }
+   function keyUp(e){ if(sdlmmObject.onKeyboardListener!=null) sdlmmObject.onKeyboardListener(e.keyCode,0); }
+
+   function setOnKeyboard(fnc){   sdlmmObject.onKeyboardListener = fnc; }
+   function setOnMouseClick(fnc){   sdlmmObject.onMouseDownListener = fnc; }
+   function setOnMouseMove(fnc){   sdlmmObject.onMouseMoveListener = fnc;  }
+   function setOnDraw(fnc){    sdlmmObject.onDrawFunctionListener = fnc;   }
+   function screenUpdateCaller(){     if(sdlmmObject.onDrawFunctionListener !=null) sdlmmObject.onDrawFunctionListener();   }
+   function startApplication(period){     return setInterval(screenUpdateCaller,period);      }
+   function sdlmmScreen(width,height){
+      var div=document.createElement('div');
+      document.body.appendChild(div);
+      div.setAttribute('id','drawable');
+      div.style['height']=width.toString();
+      div.style['width']=height.toString();
+      sdlmmObject.canvas =Array(document.createElement('canvas'),document.createElement('canvas'));
+      sdlmmObject.canvas[0].width=sdlmmObject.canvas[1].width=width;
+      sdlmmObject.canvas[0].height=sdlmmObject.canvas[1].height=height;
+      sdlmmObject.canvas[1].style['display']='none';
+      div.appendChild(sdlmmObject.canvas[0]);
+      div.appendChild(sdlmmObject.canvas[1]);
+      sdlmmObject.ctx=Array(sdlmmObject.canvas[0].getContext("2d"),sdlmmObject.canvas[1].getContext("2d"));
+      div.onmousedown=function(event){mouseDown(event);}
+	  div.onmouseup=function(event){mouseDown(event);}
+	  div.onmousemove=function(event){mouseMove(event);}
+      document.onkeydown = function(e){
+         keyDown(e);
+      };
+      document.onkeyup = function(e){
+         keyUp(e);
+      };
+      sdlmmObject.drawCtx=sdlmmObject.ctx[(sdlmmObject.selectCtx+1)%sdlmmObject.ctx.length];
+   }
+   // 匯出API
+   sdlmmObject.flush = function(){ flushscreen(); }
+   sdlmmObject.drawString=function(str,x,y,c){ drawString(sdlmmObject.drawCtx,str,x,y,c);}
+   sdlmmObject.drawCircle=function(x,y,r,c){      drawCircle(sdlmmObject.drawCtx,x,y,r,c);   }
+   sdlmmObject.drawText=function(x,y,f,str,c){ drawText(sdlmmObject.drawCtx,x,y,f,str,c); }
+   sdlmmObject.fillRect=function(x,y,w,h,c){fillrect(sdlmmObject.drawCtx,x,y,w,h,c); }
+   sdlmmObject.drawLine=function(x1,y1,x2,y2,c){drawLine(sdlmmObject.drawCtx,x1,y1,x2,y2,c);}
+   
+   sdlmmObject.setOnMouseClick=function(fnc){setOnMouseClick(fnc);}
+   sdlmmObject.setOnMouseMove=function(fnc){setOnMouseMove(fnc);}
+   sdlmmObject.setOnKeyboard=function(fnc){setOnKeyboard(fnc);}
+   sdlmmObject.setOnDraw=function(fnc){setOnDraw(fnc);}
+   
+   sdlmmObject.init=function(width,height){sdlmmScreen(width,height);}
+   sdlmmObject.start=function(period){sdlmmObject.defaultIntervalID=startApplication(period); return sdlmmObject.defaultIntervalID; }
+   sdlmmObject.stop=function(){ clearInterval(sdlmmObject.defaultIntervalID); }
+   
+   return sdlmmObject;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+var sdlmm = null;
 var mouseStatus=0; // 0 = up, 1 = down
 var pressKey=0;
-/**************************************
- *
- *  Helper Functions
- */
-function drawCircle(canvasCtx,x,y,r,c){
-   canvasCtx.beginPath();
-   canvasCtx.strokeStyle=c;
-   canvasCtx.lineWidth=1;
-   canvasCtx.arc(x,y,r,0, 2 * Math.PI, false);
-   canvasCtx.stroke();
-}
-function drawText(canvasCtx,x,y,f,str,c){
-   canvasCtx.font=f;
-   canvasCtx.fillStyle=c;
-   canvasCtx.fillText(str,x,y);
-}
-function drawString(drawCtx,str,x,y,c){
-   drawText(drawCtx,x,20+y,'20px Arial',str,c);
-}
-function fillrect(canvasCtx,x,y,w,h,c){
-   canvasCtx.fillStyle=c;
-   canvasCtx.fillRect(x,y,w,h);
-}
-function drawLine(canvasCtx,x1,y1,x2,y2,c){
-   canvasCtx.beginPath();
-   canvasCtx.fillStyle=c;
-   canvasCtx.moveTo(x1,y1);
-   canvasCtx.lineTo(x2,y2);
-   canvasCtx.stroke();
-}
-
-function flushscreen(){
-   canvas[selectCtx].style['display']='none'; // hide current
-   selectCtx=(selectCtx+1)%ctx.length;// select another
-   canvas[selectCtx].style['display']='block'; // show another 
-   drawCtx=ctx[(selectCtx+1)%ctx.length];
-}
-
-////////////////////////////////////////////////////////////////////
+var starttime=new Date().getTime();
 function checkHanoiEnd(ar) {
+   if(new Date().getTime()-starttime > 300000) return true;
    var len = ar.length;
    var maxValue = len;
    var cloneC = Array(len);
@@ -68,33 +134,25 @@ function getTopIndex(tower) {
 	return -1;
 }
 function selectTower(selection, a,b,c) {
-		switch (selection) {
+	switch (selection) {
 		case 0: return a;
 		case 1: return b;
 		case 2: return c;
-		}
-		return null;
+	}
+	return null;
 }
-var colorcodes=Array(5);
-colorcodes[0]='#0000aa';
-colorcodes[1]='#0000bb';
-colorcodes[2]='#0000cc';
-colorcodes[3]='#0000dd';
-colorcodes[4]='#0000ee';
-function drawOneHanoi(drawCtx,arr,x,y,widthPerStack,heightPerStack,stickWidth) {
-    
-	fillrect(drawCtx, x, y, stickWidth, arr.length * heightPerStack, '#000000');
+var colorcodes=Array('#0000aa','#0000bb','#0000cc','#0000dd','#0000ee');
+function drawOneHanoi(arr,x,y,widthPerStack,heightPerStack,stickWidth) {
+	sdlmm.fillRect(x, y, stickWidth, arr.length * heightPerStack, '#000000');
 	var topIdx = getTopIndex(arr);
 	var bottom = y + arr.length * heightPerStack;
 	if (topIdx == -1) return;
 	for (var i = 0; i <= topIdx; ++i) {
 		var width = widthPerStack * arr[i];
 		var colorcode=colorcodes[arr[i]-1];	
-		fillrect(drawCtx,x - width / 2, bottom - heightPerStack * (i + 1), width,heightPerStack, colorcode);
+		sdlmm.fillRect(x - width / 2, bottom - heightPerStack * (i + 1), width,heightPerStack, colorcode);
 	}
 }
-
-
 function moveHanoi(from,to,a,b,c) {
 	if (from == to)	return;
 	var fromArray = selectTower(from, a, b, c);
@@ -109,35 +167,31 @@ function moveHanoi(from,to,a,b,c) {
 	fromArray[fromTopIdx] = 0;
 	toArray[toTopIdx + 1] = topValue;
 }
-function showMessage(drawCtx,str) {
-	fillrect(drawCtx,0, 0, 200, 30, '#ffffff');
-	drawString(drawCtx,str, 0, 0, '#000000');
+function showMessage(str) {
+	sdlmm.fillRect(0, 0, 200, 30, '#ffffff');
+	sdlmm.drawString(str, 0, 0, '#000000');
 }
 var from = -1;
 var to = -1;
 var currentIdx = 0;
 var waitSelection = false;
 var pressKey = 0;
-function onKeyFnc(k,on){ 
+
+
+function onKeyboard(k,on){ 
    if(on) {
       pressKey=k; 
    }
-   document.getElementById('txtinput').focus(); 
 }
-function onMouseDown(x,y,on){document.getElementById('txtinput').focus(); }
-function onMouseMove(x,y,on){}
 
-
-
-
-function showSelection2(drawCtx,xCenters,y) {
+function showSelection2(xCenters,y) {
 	if (!waitSelection) return -1;
 	var centerX = xCenters[currentIdx];
 	var leftX = xCenters[currentIdx] - 10;
 	var rightX = xCenters[currentIdx] + 10;
-	drawLine(drawCtx,centerX, y, leftX, y + 20, '#0000ff');
-	drawLine(drawCtx,leftX, y + 20, rightX, y + 20, '#0000ff');
-	drawLine(drawCtx,centerX, y, rightX, y + 20, '#0000ff');
+	sdlmm.drawLine(centerX, y, leftX, y + 20, '#0000ff');
+	sdlmm.drawLine(leftX, y + 20, rightX, y + 20, '#0000ff');
+	sdlmm.drawLine(centerX, y, rightX, y + 20, '#0000ff');
 	switch (pressKey) {
 	case 37: // left
 		currentIdx = currentIdx - 1;
@@ -151,8 +205,8 @@ function showSelection2(drawCtx,xCenters,y) {
 		waitSelection = false;
 		pressKey = 0;
 		return currentIdx;
-	case '1': case '2': case '3':
-		currentIdx = pressKey - '0';
+	case 49: case 50: case 51:
+		currentIdx = pressKey - 49;
 		break;
 	}
 	pressKey = 0;
@@ -160,31 +214,68 @@ function showSelection2(drawCtx,xCenters,y) {
 
 }
 
-function showSelection(drawCtx) {
-	var xCenters = Array(3);
-	xCenters[0]=100;
-	xCenters[1]=250;
-	xCenters[2]=400;
-	return showSelection2(drawCtx,xCenters, 250);
+function showSelection() {
+	var xCenters = Array(100,250,400);
+	return showSelection2(xCenters, 250);
 }
-var starttime=new Date().getTime();
-function drawHanois(drawCtx,a,b,c) {
+
+function drawHanois(a,b,c) {
 	//drawPixels(bg, 0, 0, 500, 400);
 	var timeElapsed = (new Date().getTime()-starttime)/1000.0;
 	var str = "時間:"+timeElapsed.toFixed(1)+"秒";
-	fillrect(drawCtx,0, 30, 200, 30, '#ffffff');
-    drawString(drawCtx,str,0,30,'#0000FF');
-	drawOneHanoi(drawCtx,a, 100, 100, 25, 20, 5);
-	drawOneHanoi(drawCtx,b, 250, 100, 25, 20, 5);
-	drawOneHanoi(drawCtx,c, 400, 100, 25, 20, 5);
+	sdlmm.fillRect(0, 30, 200, 30, '#ffffff');
+    sdlmm.drawString(str,0,30,'#0000FF');
+	drawOneHanoi(a, 100, 100, 25, 20, 5);
+	drawOneHanoi(b, 250, 100, 25, 20, 5);
+	drawOneHanoi(c, 400, 100, 25, 20, 5);
 }
 var init=false;
-var a=Array(5);
-var b=Array(5);
-var c=Array(5);
+var a=null;
+var b=null;
+var c=null;
 
-function run(drawCtx) {
-    if(!init){
+function run() {
+
+	//startTimeMillis = System.currentTimeMillis();
+	if (!checkHanoiEnd(c)) {
+		drawHanois(a, b, c);
+		showMessage("請選擇搬動的來源");
+		if (from == -1) {
+			waitSelection = true;
+			from = showSelection();
+			return;
+		}
+		var n1 = from;
+		showMessage("要搬到哪去 ");
+		if (to == -1) {
+			waitSelection = true;
+			to = showSelection();
+			return;
+		}
+		var n2 = to;
+		moveHanoi(n1, n2, a, b, c);
+		from = -1;
+		to = -1;
+	}
+	else{
+	   sdlmm.stop();
+	   console.log('ended');
+	   drawHanois(a, b, c);
+	   showMessage("遊戲結束");
+	   //flushscreen();
+	}
+}
+/////////////////////////////////////////////////////////////////////
+
+function onDraw(){// draw on another   
+   sdlmm.fillRect(0,0,screen.width,screen.height,'#FFFFFF');
+   run();
+   sdlmm.flush();
+}
+   
+function main(){
+   sdlmm = sdlmm_create();
+   if(!init){
 	   console.log('inited');
 	   var maxval=5;
        a = Array(maxval);
@@ -196,91 +287,11 @@ function run(drawCtx) {
          c[i]=0;
        }
 	   init=true;
-	}
-	//startTimeMillis = System.currentTimeMillis();
-	if (!checkHanoiEnd(c)) {
-		drawHanois(drawCtx,a, b, c);
-		showMessage(drawCtx,"請選擇搬動的來源");
-		if (from == -1) {
-			waitSelection = true;
-			from = showSelection(drawCtx);
-			return;
-		}
-		var n1 = from;
-		showMessage(drawCtx,"要搬到哪去 ");
-		if (to == -1) {
-			waitSelection = true;
-			to = showSelection(drawCtx);
-			return;
-		}
-		var n2 = to;
-		moveHanoi(n1, n2, a, b, c);
-		from = -1;
-		to = -1;
-	}
-	else{
-	   console.log('ended');
-	   drawHanois(drawCtx,a, b, c);
-	   showMessage(drawCtx,"遊戲結束");
-	   //flushscreen();
-	}
-}
-/////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function onDraw(){// draw on another   
-   fillrect(drawCtx,0,0,screen.width,screen.height,'#FFFFFF');
-   run(drawCtx);
-   flushscreen();
-}
-function mouseDown(e){   onMouseDown(e.clientX,e.clientY,1); }
-function mouseUp(e){   onMouseDown(e.clientX,e.clientY,0); }
-function mouseMove(e){ onMouseMove(e.clientX,e.clientY,mouseStatus); }
-function keyDown(e){ onKeyFnc(e.keyCode,1); }
-function keyUp(e){ onKeyFnc(e.keyCode,0); }
-function main(){
-   var input=document.createElement('input');
-   input.style['display']='block';
-   input.style['width']='0px';
-   input.style['height']='0px';
-   input.style['opacity']='0';
-   input.setAttribute('type','text');
-   input.setAttribute('id','txtinput');
-   document.body.appendChild(input);
-   var div=document.createElement('div');
-   document.body.appendChild(div);
-   div.setAttribute('id','drawable');
-   div.style['height']='700';
-   div.style['width']='400';
-   canvas =Array(document.createElement('canvas'),document.createElement('canvas'));
-   canvas[0].width=canvas[1].width=700;
-   canvas[0].height=canvas[1].height=400;
-   canvas[1].style['display']='none';
-   div.appendChild(canvas[0]);
-   div.appendChild(canvas[1]);
-   
-   
-   ctx=Array(canvas[0].getContext("2d"),canvas[1].getContext("2d"));
-   div.setAttribute('onmousedown','mouseDown(event)');
-   div.setAttribute('onmouseup','mouseUp(event)');
-   div.setAttribute('onmousemove','mouseMove(event)');
-   input.setAttribute('onkeydown','keyDown(event)');
-   input.setAttribute('onkeyup','keyUp(event)');
-   input.focus();
-   drawCtx=ctx[(selectCtx+1)%ctx.length];
-   setInterval(onDraw,4);   
+   }
+   sdlmm.init(700,400);
+   sdlmm.setOnKeyboard(onKeyboard);  
+   sdlmm.setOnDraw(onDraw);
+   sdlmm.start(10);
 }
 main();
 </script>
