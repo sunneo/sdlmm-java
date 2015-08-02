@@ -10,11 +10,19 @@ function sdlmm_create(){
    sdlmmObject.ctx=null;
    sdlmmObject.drawCtx=null;
    sdlmmObject.selectCtx=0;
+   sdlmmObject.mouseStatus=0;
    sdlmmObject.onMouseDownListener = null;
    sdlmmObject.onMouseMoveListener = null;
    sdlmmObject.onKeyboardListener = null;
    sdlmmObject.onDrawFunctionListener = null;
    sdlmmObject.defaultIntervalID=null;
+   function drawImage(canvasCtx,imgpath,x,y,w,h){
+      var img=document.createElement("img");
+      img.setAttribute('src',imgpath);
+      img.setAttribute('width',w);
+      img.setAttribute('height',h);
+      canvasCtx.drawImage(img,x,y,w,h);
+   }
    function drawCircle(canvasCtx,x,y,r,c){
       canvasCtx.beginPath();
       canvasCtx.strokeStyle=c;
@@ -53,7 +61,7 @@ function sdlmm_create(){
    
    function mouseDown(e){ if(sdlmmObject.onMouseDownListener!=null)  sdlmmObject.onMouseDownListener(e.clientX,e.clientY,1); }
    function mouseUp(e){   if(sdlmmObject.onMouseDownListener!=null) sdlmmObject.onMouseDownListener(e.clientX,e.clientY,0); }
-   function mouseMove(e){ if(sdlmmObject.onMouseMoveListener!=null) sdlmmObject.onMouseMoveListener(e.clientX,e.clientY,mouseStatus); }
+   function mouseMove(e){ if(sdlmmObject.onMouseMoveListener!=null) sdlmmObject.onMouseMoveListener(e.clientX,e.clientY,sdlmmObject.mouseStatus); }
    function keyDown(e){ if(sdlmmObject.onKeyboardListener!=null) sdlmmObject.onKeyboardListener(e.keyCode,1); }
    function keyUp(e){ if(sdlmmObject.onKeyboardListener!=null) sdlmmObject.onKeyboardListener(e.keyCode,0); }
 
@@ -94,12 +102,12 @@ function sdlmm_create(){
    sdlmmObject.drawText=function(x,y,f,str,c){ drawText(sdlmmObject.drawCtx,x,y,f,str,c); }
    sdlmmObject.fillRect=function(x,y,w,h,c){fillrect(sdlmmObject.drawCtx,x,y,w,h,c); }
    sdlmmObject.drawLine=function(x1,y1,x2,y2,c){drawLine(sdlmmObject.drawCtx,x1,y1,x2,y2,c);}
-   
+   sdlmmObject.drawImage=function(path,x,y,w,h){drawImage(sdlmmObject.drawCtx,path,x,y,w,h); }   
    sdlmmObject.setOnMouseClick=function(fnc){setOnMouseClick(fnc);}
    sdlmmObject.setOnMouseMove=function(fnc){setOnMouseMove(fnc);}
    sdlmmObject.setOnKeyboard=function(fnc){setOnKeyboard(fnc);}
    sdlmmObject.setOnDraw=function(fnc){setOnDraw(fnc);}
-   
+
    sdlmmObject.init=function(width,height){sdlmmScreen(width,height);}
    sdlmmObject.start=function(period){sdlmmObject.defaultIntervalID=startApplication(period); return sdlmmObject.defaultIntervalID; }
    sdlmmObject.stop=function(){ clearInterval(sdlmmObject.defaultIntervalID); }
@@ -269,6 +277,7 @@ function run() {
 
 function onDraw(){// draw on another   
    sdlmm.fillRect(0,0,screen.width,screen.height,'#FFFFFF');
+   sdlmm.drawImage("./bg.bmp",0,0,500,400);
    run();
    sdlmm.flush();
 }
@@ -288,7 +297,7 @@ function main(){
        }
 	   init=true;
    }
-   sdlmm.init(700,400);
+   sdlmm.init(500,400);
    sdlmm.setOnKeyboard(onKeyboard);  
    sdlmm.setOnDraw(onDraw);
    sdlmm.start(10);

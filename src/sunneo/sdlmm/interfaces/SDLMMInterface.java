@@ -83,6 +83,10 @@ public interface SDLMMInterface {
      */
     public void setOnKeyboard(OnKeyboardListener l);
 
+    public void drawPolygon(int[] x, int[] y, int color);
+
+    public void fillPolygon(int[] x, int[] y, int color);
+
     /**
      * drawing string at specified position
      * 

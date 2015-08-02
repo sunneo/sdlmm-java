@@ -85,9 +85,9 @@ function onDraw(){// draw on another
    }
    flushscreen();
 }
-function mouseDown(e){   onMouseDown(e.clientX,e.clientY,1); }
-function mouseUp(e){   onMouseDown(e.clientX,e.clientY,0); }
-function mouseMove(e){ onMouseMove(e.clientX,e.clientY,mouseStatus); }
+function mouseDown(e){   onMouseDown(e.layerX,e.layerY,1); }
+function mouseUp(e){   onMouseDown(e.layerX,e.layerY,0); }
+function mouseMove(e){ onMouseMove(e.layerX,e.layerY,mouseStatus); }
 function main(){
    var div=document.createElement('div');
    document.body.appendChild(div);
