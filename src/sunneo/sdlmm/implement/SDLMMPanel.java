@@ -30,6 +30,33 @@ class Parallel {
 
 	private static final ExecutorService forPool = Executors.newFixedThreadPool(NUM_CORES * 2);
 
+	public static <T> void For(final int size, final T[] elements, final Operation<T> operation) {
+		try {
+			// invokeAll blocks for us until all submitted tasks in the
+			// call complete
+			forPool.invokeAll(createCallables(size, elements, operation));
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static <T> Collection<Callable<Void>> createCallables(final int size, final T[] elements,
+			final Operation<T> operation) {
+		List<Callable<Void>> callables = new LinkedList<Callable<Void>>();
+		for (int i = 0; i < size; ++i) {
+			final T elem = elements[i];
+			callables.add(new Callable<Void>() {
+				@Override
+				public Void call() {
+					operation.perform(elem);
+					return null;
+				}
+			});
+		}
+
+		return callables;
+	}
+
 	public static <T> void For(final int size, final Vector<T> elements, final Operation<T> operation) {
 		try {
 			// invokeAll blocks for us until all submitted tasks in the
@@ -275,11 +302,13 @@ public abstract class SDLMMPanel extends JPanel implements SDLMMInterface {
 			mode7render_internal(0.5, 1.5, 2, 1, angle, vx, vy, pixels, bw, bh, x, y, w, h);
 		}
 
-		Vector<Integer> elems = new Vector<Integer>();
+		Integer[] elesArray;
+		int[] mode7ToDraw;
+		int mode7ToDrawW, mode7ToDrawH;
 
-		public void mode7render_internal(double groundFactor, double xFac, double yFac, int scanlineJump, double angle,
-				final int vx, final int vy, final int[] bg, final int bw, final int bh, final int tx, final int ty,
-				int _w, int _h) {
+		public void mode7render_internal(final double groundFactor, final double xFac, final double yFac,
+				final int scanlineJump, final double angle, final int vx, final int vy, final int[] bg, final int bw,
+				final int bh, final int tx, final int ty, int _w, int _h) {
 			if (tx + _w >= this.getWidth()) {
 				_w = this.getWidth() - tx;
 			}
@@ -288,7 +317,20 @@ public abstract class SDLMMPanel extends JPanel implements SDLMMInterface {
 			}
 			final int w = _w;
 			final int h = _h;
-			final int[] toDraw = new int[w * h];
+			if (mode7ToDraw != null) {
+				if (w * h > mode7ToDrawW * mode7ToDrawH) {
+					mode7ToDraw = new int[w * h];
+				}
+			} else {
+				mode7ToDraw = new int[w * h];
+			}
+			if (mode7ToDrawW != w) {
+				mode7ToDrawW = w;
+			}
+			if (mode7ToDrawH != h) {
+				mode7ToDrawH = h;
+			}
+			final int[] toDraw = mode7ToDraw;
 			final int lev = w / scanlineJump;
 			int x;
 			final double ca = Math.cos(angle) * 48 * groundFactor * xFac;
@@ -296,12 +338,18 @@ public abstract class SDLMMPanel extends JPanel implements SDLMMInterface {
 			final double can = Math.cos(angle + 3.1415926 / 2) * 16 * groundFactor * yFac;
 			final double san = Math.sin(angle + 3.1415926 / 2) * 16 * groundFactor * yFac;
 			if (SDLMMPanel.DOParallel) {
-				elems.setSize(lev);
+				if (elesArray == null) {
+					elesArray = new Integer[lev];
+				} else {
+					if (elesArray.length < lev) {
+						elesArray = new Integer[lev];
+					}
+				}
 				for (int i = 0; i < lev; ++i) {
-					elems.set(i, i);
+					elesArray[i] = i;
 				}
 
-				Parallel.For(lev, elems,
+				Parallel.For(lev, elesArray,
 						// The operation to perform with each item
 						new Parallel.Operation<Integer>() {
 							public void perform(Integer x) {
