@@ -23,6 +23,16 @@ function sdlmm_create(){
       img.setAttribute('height',h);
       canvasCtx.drawImage(img,x,y,w,h);
    }
+   function drawPolygon(canvasCtx,xArray,yArray,color,fillOrNot){
+      var len = Math.min(xArray.length,yArray.length);
+      canvasCtx.beginPath();
+      canvasCtx.fillStyle=c;
+      canvasCtx.moveTo(xArray[0],yArray[0]);
+      for(var i=1; i<len; ++i)
+         canvasCtx.lineTo(xArray[i],yArray[i]);
+      if(fillOrNot) canvasCtx.fill();
+      canvasCtx.stroke();
+   }
    function drawCircle(canvasCtx,x,y,r,c){
       canvasCtx.beginPath();
       canvasCtx.strokeStyle=c;
@@ -107,7 +117,8 @@ function sdlmm_create(){
    sdlmmObject.setOnMouseMove=function(fnc){setOnMouseMove(fnc);}
    sdlmmObject.setOnKeyboard=function(fnc){setOnKeyboard(fnc);}
    sdlmmObject.setOnDraw=function(fnc){setOnDraw(fnc);}
-
+   sdlmmObject.drawPolygon=function(xArray,yArray,color){ drawPolygon(sdlmmObject.drawCtx,xArray,yArray,color,false); }
+   sdlmmObject.fillPolygon=function(xArray,yArray,color){ drawPolygon(sdlmmObject.drawCtx,xArray,yArray,color,true); }
    sdlmmObject.init=function(width,height){sdlmmScreen(width,height);}
    sdlmmObject.start=function(period){sdlmmObject.defaultIntervalID=startApplication(period); return sdlmmObject.defaultIntervalID; }
    sdlmmObject.stop=function(){ clearInterval(sdlmmObject.defaultIntervalID); }
@@ -194,12 +205,15 @@ function onKeyboard(k,on){
 
 function showSelection2(xCenters,y) {
 	if (!waitSelection) return -1;
-	var centerX = xCenters[currentIdx];
+        var xArray=Array(xCenters[currentIdx],xCenters[currentIdx] - 10,xCenters[currentIdx] + 10);
+        var yArray=Array(y,y+10,y+10);
+	/*var centerX = xCenters[currentIdx];
 	var leftX = xCenters[currentIdx] - 10;
 	var rightX = xCenters[currentIdx] + 10;
 	sdlmm.drawLine(centerX, y, leftX, y + 20, '#0000ff');
 	sdlmm.drawLine(leftX, y + 20, rightX, y + 20, '#0000ff');
-	sdlmm.drawLine(centerX, y, rightX, y + 20, '#0000ff');
+	sdlmm.drawLine(centerX, y, rightX, y + 20, '#0000ff');*/ 
+        sdlmm.fillPolygon(xArray,yArray,'#000000');
 	switch (pressKey) {
 	case 37: // left
 		currentIdx = currentIdx - 1;
