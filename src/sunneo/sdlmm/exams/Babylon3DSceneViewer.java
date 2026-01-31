@@ -6,26 +6,80 @@ import sunneo.sdlmm.implement.SDLMMFrame;
 /**
  * Babylon3D Scene Viewer Demo
  * Port of ref-sdlmm/scene_viewer.c to Java
- * Renders a 3D scene with rotating camera
+ * Supports loading scenes from JSON files (compatible with ref-sdlmm format)
  */
 public class Babylon3DSceneViewer extends SDLMMFrame {
     private static final long serialVersionUID = 1L;
-    private static final int WIDTH = 800;
-    private static final int HEIGHT = 600;
 
     private Device device;
+    private Scene3D scene;
     private Mesh[] meshes;
     private Camera camera;
     private Vector3 lightPosition;
     private int frameNumber;
     private long lastTime;
     private int fpsCount;
+    private boolean rotateCamera;
+    private boolean rotateMeshes;
+    private int width;
+    private int height;
+
+    public Babylon3DSceneViewer(String sceneFile) {
+        super("SDLMM+Babylon3D Scene Viewer", 800, 600);
+        
+        if (sceneFile != null) {
+            loadFromJson(sceneFile);
+        } else {
+            createDefaultScene();
+        }
+        
+        frameNumber = 0;
+        lastTime = System.currentTimeMillis();
+        fpsCount = 0;
+        rotateCamera = true;
+        rotateMeshes = true;
+    }
 
     public Babylon3DSceneViewer() {
-        super("SDLMM+Babylon3D Scene Viewer", WIDTH, HEIGHT);
+        this(null);
+    }
+
+    /**
+     * Load scene from JSON file (compatible with ref-sdlmm format)
+     */
+    private void loadFromJson(String filename) {
+        System.out.println("Loading scene from: " + filename);
+        
+        scene = SceneLoader.loadScene3D(filename);
+        if (scene == null) {
+            System.err.println("Failed to load scene, using default");
+            createDefaultScene();
+            return;
+        }
+
+        width = scene.width;
+        height = scene.height;
         
         // Create rendering device
-        device = new Device(WIDTH, HEIGHT);
+        device = new Device(width, height);
+        
+        // Get scene data
+        camera = scene.camera;
+        meshes = scene.getMeshes();
+        lightPosition = scene.getLightPosition();
+        
+        // Resize window to match scene dimensions
+        setSize(width, height);
+        
+        System.out.println("Scene loaded successfully: " + meshes.length + " meshes");
+    }
+
+    private void createDefaultScene() {
+        width = 800;
+        height = 600;
+        
+        // Create rendering device
+        device = new Device(width, height);
 
         // Setup camera
         camera = new Camera();
@@ -35,15 +89,6 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
         // Setup light
         lightPosition = new Vector3(0, 10, 10);
 
-        // Create scene with multiple meshes
-        createScene();
-        
-        frameNumber = 0;
-        lastTime = System.currentTimeMillis();
-        fpsCount = 0;
-    }
-
-    private void createScene() {
         // Create multiple cubes in a scene
         meshes = new Mesh[3];
         
@@ -101,28 +146,35 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
         device.clear();
         
         // Rotate all cubes
-        for (Mesh mesh : meshes) {
-            mesh.Rotation.x += 0.01f;
-            mesh.Rotation.y += 0.01f;
+        if (rotateMeshes && meshes != null) {
+            for (Mesh mesh : meshes) {
+                mesh.Rotation.x += 0.01f;
+                mesh.Rotation.y += 0.01f;
+            }
         }
         
         // Rotate camera around the scene
-        float angle = frameNumber * 0.01f;
-        camera.Position.x = 10.0f * (float) Math.cos(angle);
-        camera.Position.z = -10.0f + 10.0f * (float) Math.sin(angle);
+        if (rotateCamera) {
+            float angle = frameNumber * 0.01f;
+            camera.Position.x = 10.0f * (float) Math.cos(angle);
+            camera.Position.z = 10.0f * (float) Math.sin(angle);
+        }
         
         frameNumber++;
         
         // Render all meshes
-        device.render(camera, meshes, lightPosition);
+        if (meshes != null && meshes.length > 0) {
+            device.render(camera, meshes, lightPosition);
+        }
         
         // Present to screen
-        drawPixels(device.backbuffer, 0, 0, WIDTH, HEIGHT);
+        drawPixels(device.backbuffer, 0, 0, width, height);
         
         // Draw info
-        fillRect(0, 0, 200, 40, 0xFF000000);
+        fillRect(0, 0, 250, 40, 0xFF000000);
         drawString("Scene Viewer Demo", 5, 2, 0xFFFFFF);
-        drawString("FPS: " + fpsCount + " | Frame: " + frameNumber, 5, 18, 0xFFFFFF);
+        drawString("FPS: " + fpsCount + " | Frame: " + frameNumber + " | Meshes: " + 
+                   (meshes != null ? meshes.length : 0), 5, 18, 0xFFFFFF);
         
         flush();
     }
@@ -130,8 +182,15 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
     public static void main(String[] args) {
         System.out.println("Babylon3D Scene Viewer Demo");
         System.out.println("===========================");
+        System.out.println("Usage: java Babylon3DSceneViewer [scene.json]");
+        System.out.println();
         
-        Babylon3DSceneViewer viewer = new Babylon3DSceneViewer();
+        String sceneFile = null;
+        if (args.length > 0) {
+            sceneFile = args[0];
+        }
+        
+        Babylon3DSceneViewer viewer = new Babylon3DSceneViewer(sceneFile);
         viewer.setVisible(true);
     }
 }
