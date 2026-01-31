@@ -1,0 +1,26 @@
+# Compiled class files
+bin/
+*.class
+
+# Eclipse project files
+.project
+.classpath
+.settings/
+
+# IntelliJ IDEA files
+.idea/
+*.iml
+
+# Build artifacts
+build/
+out/
+target/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*~
