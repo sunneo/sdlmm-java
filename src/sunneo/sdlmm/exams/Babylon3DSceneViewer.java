@@ -19,6 +19,7 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
     private int frameNumber;
     private long lastTime;
     private int fpsCount;
+    private int displayFps;
     private boolean rotateCamera;
     private boolean rotateMeshes;
     private int width;
@@ -132,6 +133,7 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
             fpsCount++;
             long currentTime = System.currentTimeMillis();
             if (currentTime - lastTime >= 1000) {
+                displayFps = fpsCount;
                 lastTime = currentTime;
                 fpsCount = 0;
             }
@@ -173,7 +175,7 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
         // Draw info
         fillRect(0, 0, 250, 40, 0xFF000000);
         drawString("Scene Viewer Demo", 5, 2, 0xFFFFFF);
-        drawString("FPS: " + fpsCount + " | Frame: " + frameNumber + " | Meshes: " + 
+        drawString("FPS: " + displayFps + " | Frame: " + frameNumber + " | Meshes: " + 
                    (meshes != null ? meshes.length : 0), 5, 18, 0xFFFFFF);
         
         flush();

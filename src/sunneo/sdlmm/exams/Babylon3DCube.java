@@ -17,6 +17,7 @@ public class Babylon3DCube extends SDLMMFrame {
     private Camera camera;
     private long lastTime;
     private int frameCount;
+    private int displayFps;
 
     public Babylon3DCube() {
         super("Babylon 3D - Rotating Cube Demo", WIDTH, HEIGHT);
@@ -67,7 +68,7 @@ public class Babylon3DCube extends SDLMMFrame {
             
             // Draw FPS
             fillRect(0, 0, 100, 20, 0xFF000000);
-            drawString("FPS: " + frameCount, 5, 2, 0xFFFFFF);
+            drawString("FPS: " + displayFps, 5, 2, 0xFFFFFF);
             
             flush();
 
@@ -75,6 +76,7 @@ public class Babylon3DCube extends SDLMMFrame {
             frameCount++;
             long currentTime = System.currentTimeMillis();
             if (currentTime - lastTime >= 1000) {
+                displayFps = frameCount;
                 lastTime = currentTime;
                 frameCount = 0;
             }
