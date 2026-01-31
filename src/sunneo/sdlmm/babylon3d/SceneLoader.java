@@ -126,13 +126,18 @@ public class SceneLoader {
                     // Load mesh from file or inline data
                     if (model.modelFile != null) {
                         String meshPath = baseDir + model.modelFile;
+                        java.io.File meshFile = new java.io.File(meshPath);
+                        if (!meshFile.exists()) {
+                            System.err.println("Failed to load mesh: " + meshPath + " (file not found)");
+                            continue;
+                        }
                         model.mesh = Mesh.loadObj(meshPath);
                         if (model.mesh != null) {
                             model.mesh.Position = model.position;
                             model.mesh.Rotation = model.rotation;
                             System.out.println("Loaded mesh from: " + meshPath);
                         } else {
-                            System.err.println("Failed to load mesh: " + meshPath);
+                            System.err.println("Failed to load mesh: " + meshPath + " (invalid OBJ format or parse error)");
                             continue;
                         }
                     } else if (meshData != null) {
@@ -143,7 +148,7 @@ public class SceneLoader {
                             model.mesh.Rotation = model.rotation;
                             System.out.println("Loaded inline mesh");
                         } else {
-                            System.err.println("Failed to load inline mesh");
+                            System.err.println("Failed to load inline mesh (missing vertices or faces data)");
                             continue;
                         }
                     } else {
@@ -157,12 +162,17 @@ public class SceneLoader {
                     // Load texture
                     if (model.textureFile != null && model.mesh != null) {
                         String texPath = baseDir + model.textureFile;
-                        Texture tex = Texture.load(texPath);
-                        if (tex != null) {
-                            model.mesh.texture = tex;
-                            System.out.println("Loaded texture from: " + texPath);
+                        java.io.File texFile = new java.io.File(texPath);
+                        if (!texFile.exists()) {
+                            System.err.println("Failed to load texture: " + texPath + " (file not found)");
                         } else {
-                            System.err.println("Failed to load texture: " + texPath);
+                            Texture tex = Texture.load(texPath);
+                            if (tex != null) {
+                                model.mesh.texture = tex;
+                                System.out.println("Loaded texture from: " + texPath);
+                            } else {
+                                System.err.println("Failed to load texture: " + texPath + " (unsupported format or read error)");
+                            }
                         }
                     }
 

@@ -157,7 +157,7 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
         if (rotateCamera) {
             float angle = frameNumber * 0.01f;
             camera.Position.x = 10.0f * (float) Math.cos(angle);
-            camera.Position.z = 10.0f * (float) Math.sin(angle);
+            camera.Position.z = -10.0f + 10.0f * (float) Math.sin(angle);
         }
         
         frameNumber++;
