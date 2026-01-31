@@ -46,7 +46,7 @@ public class Device {
                 final int start = i * chunkSize;
                 final int end = (i == NUM_CORES - 1) ? size : (i + 1) * chunkSize;
                 tasks.add(() -> {
-                    Arrays.fill(backbuffer, start, end, 0);
+                    Arrays.fill(backbuffer, start, end, 0xFF000000);
                     Arrays.fill(depthbuffer, start, end, Integer.MAX_VALUE);
                     return null;
                 });
@@ -55,11 +55,11 @@ public class Device {
                 executor.invokeAll(tasks);
             } catch (InterruptedException e) {
                 // Fall back to sequential
-                Arrays.fill(backbuffer, 0);
+                Arrays.fill(backbuffer, 0xFF000000);
                 Arrays.fill(depthbuffer, Integer.MAX_VALUE);
             }
         } else {
-            Arrays.fill(backbuffer, 0);
+            Arrays.fill(backbuffer, 0xFF000000);
             Arrays.fill(depthbuffer, Integer.MAX_VALUE);
         }
     }
