@@ -21,7 +21,7 @@ public class NBody3D extends SDLMMFrame {
     final static int MAX_Z_axis = 1000;
     final static int MIN_Z_axis = 0;
     final static int MAX_Velocity = 200;
-    final static int MIN_velocity = -200;
+    final static int MIN_Velocity = -200;
     final static int MAX_Mass = 150;
     final static int MIN_Mass = 3;
     
@@ -123,9 +123,9 @@ public class NBody3D extends SDLMMFrame {
         newX_velocity[i] += sumX * simulatetime;
         newY_velocity[i] += sumY * simulatetime;
         newZ_velocity[i] += sumZ * simulatetime;
-        X_axis[i] += clamp(newX_velocity[i], MIN_velocity, MAX_Velocity) * simulatetime;
-        Y_axis[i] += clamp(newY_velocity[i], MIN_velocity, MAX_Velocity) * simulatetime;
-        Z_axis[i] += clamp(newZ_velocity[i], MIN_velocity, MAX_Velocity) * simulatetime;
+        X_axis[i] += clamp(newX_velocity[i], MIN_Velocity, MAX_Velocity) * simulatetime;
+        Y_axis[i] += clamp(newY_velocity[i], MIN_Velocity, MAX_Velocity) * simulatetime;
+        Z_axis[i] += clamp(newZ_velocity[i], MIN_Velocity, MAX_Velocity) * simulatetime;
         X_Velocity[i] = newX_velocity[i];
         Y_Velocity[i] = newY_velocity[i];
         Z_Velocity[i] = newZ_velocity[i];

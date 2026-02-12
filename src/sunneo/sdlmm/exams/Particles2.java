@@ -207,7 +207,7 @@ public class Particles2 extends SDLMMFrame {
         }
         
         int end = currentN + cnt;
-        if (end >= maxN) end = N;
+        if (end > maxN) end = maxN;
         int start = currentN - 1;
         if (start < 0) start = 0;
         
