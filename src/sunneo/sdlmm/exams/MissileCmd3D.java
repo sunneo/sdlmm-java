@@ -277,8 +277,8 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     private void drawMessage() {
-        String cscore = String.format("Score:%-04d", score);
-        String cmissile = String.format(":%-04d", remainMissile);
+        String cscore = String.format("Score:%04d", score);
+        String cmissile = String.format(":%04d", remainMissile);
         String cenermy = String.format("Enemy:%03d/%03d", remainEnermy, remainGenEnermy);
         drawString(cscore, 0, 0, 0xffffffff);
         drawString(cmissile, width - 80, 24, 0xffffffff);
