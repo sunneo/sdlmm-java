@@ -268,8 +268,7 @@ public class Mesh {
                 
                 // Normal is normalized position for a sphere centered at origin
                 Vector3 normal = new Vector3(x, y, z);
-                normal = normal.normalize();
-                v.Normal = normal;
+                v.Normal = normal.normalizeCopy();
                 
                 // Texture coordinates
                 float u = (float)seg / segments;

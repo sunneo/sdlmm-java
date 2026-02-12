@@ -164,7 +164,7 @@ public class NBody3D extends SDLMMFrame {
         
         // Render scene
         device.clear();
-        device.render(camera, particleMeshes, SZ, lightPosition);
+        device.render(camera, particleMeshes, lightPosition);
         
         // Copy device buffer to screen
         int[] backbuffer = device.backbuffer;

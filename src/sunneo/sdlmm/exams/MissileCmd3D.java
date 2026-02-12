@@ -350,7 +350,7 @@ public class MissileCmd3D extends SDLMMFrame {
         System.arraycopy(buildingMeshes, 0, allMeshes, 20 + maxMissile, MAX_BUILD);
         
         device.clear();
-        device.render(camera, allMeshes, allMeshes.length, lightPosition);
+        device.render(camera, allMeshes, lightPosition);
         
         // Copy buffer to screen
         int[] backbuffer = device.backbuffer;
