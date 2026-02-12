@@ -3,118 +3,178 @@ package sunneo.sdlmm.exams;
 import sunneo.sdlmm.babylon3d.*;
 import sunneo.sdlmm.implement.SDLMMFrame;
 import sunneo.sdlmm.interfaces.SDLMMInterface;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 3D Missile Command game using Babylon3D rendering
- * Based on ref-sdlmm missilecmd.c with 3D visualization
+ * Complete rewrite matching ref-sdlmm/exams/missilecmd3d.c EXACTLY
+ * 
+ * Features:
+ * - Particle systems (smoke trails and explosions)
+ * - Glow textures for all objects
+ * - Trajectory line meshes
+ * - Ground plane
+ * - Purple gradient sky background
+ * - Complete visual consistency with reference
  */
 public class MissileCmd3D extends SDLMMFrame {
     private static final long serialVersionUID = 1L;
     
-    private static final int MAX_BUILD = 5;
-    private static final int buildWidth = 128;
-    private static final int buildHeight = 128;
-    private static final int launcherWidth = 128;
-    private static final int launcherHeight = 128;
-    private static final int padding = 10;
+    // Constants matching reference
     private static final int width = 800;
     private static final int height = 600;
-    private static final int maxRadius = 32;
-    private static final int maxMissile = 16;
-    private static final int MAX_ENERMY_SPEED = 2;
+    private static final int MAX_BUILD = 5;
+    private static final int MAX_ENEMY = 15;
+    private static final int MAX_OUR_MISSILE = 12;
+    private static final float MAX_EXPL_R = 2.5f;
+    private static final float ENEMY_MAX_EXPL_R = 3.0f;
+    private static final float GROUND_Y = -3.0f;
+    private static final float WORLD_WIDTH = 20.0f;
+    private static final float WORLD_DEPTH = 5.0f;
     
+    // Particle system constants
+    private static final int MAX_SMOKE_PARTICLES = 200;
+    private static final int MAX_EXPLOSION_PARTICLES = 500;
+    private static final int SMOKE_MAX_ALPHA = 64;
+    
+    // Game state
     private int score = 0;
     private int remainMissile = 45;
-    private int remainGenEnermy = 40;
-    private int remainEnermy = 40;
-    private int maxEnemyMissile = 15;
-    private volatile int mx = 0;
-    private volatile int my = 0;
-    private boolean showHelp = true;  // Show help by default
+    private int remainGenEnemy = 40;
+    private int remainEnemy = 40;
+    private int showhelp = 1;
+    private volatile int mx = width / 2;
+    private volatile int my = height / 2;
     
-    // 3D components
-    private boolean use3DRender = true;
+    // Camera
+    private float camDist = 25.0f;
+    private float camAngleX = 0.4f;
+    private float camAngleY = 0.0f;
+    
+    // 3D rendering
     private Device device;
     private Camera camera;
-    private Mesh[] enemyMissileMeshes;
-    private Mesh[] launchedMissileMeshes;
-    private Mesh[] buildingMeshes;
-    private Vector3 lightPosition;
     
-    // Camera control - FIXED angles matching ref-sdlmm
-    private float camDist = 25.0f;
-    private float camAngleX = 0.4f;  // Fixed vertical angle
-    private float camAngleY = 0.0f;  // Fixed horizontal angle (NO auto-rotation!)
+    // Particle class
+    static class Particle {
+        Vector3 pos, vel;
+        int color;
+        float life;      // 0.0 to 1.0
+        float size;
+        boolean active;
+        
+        Particle() {
+            pos = Vector3.zero();
+            vel = Vector3.zero();
+            color = 0xFFFFFF;
+            life = 1.0f;
+            size = 0.3f;
+            active = false;
+        }
+    }
     
-    static class Missile {
-        int fx, fy, tx, ty;
-        float x, y, z, dx, dy, dz;
+    // Build structure
+    static class Build3D {
+        Vector3 pos;
+        boolean alive;
+        boolean isbuild;
+        
+        Build3D() {
+            pos = Vector3.zero();
+            alive = true;
+            isbuild = true;
+        }
+    }
+    
+    // Enemy missile structure
+    static class EnemyMissile3D {
+        Vector3 from, to, pos, vel;
         boolean alive, expl, ishit;
-        int r, targetBuild;
+        int targetBuild;
+        float r;
+        
+        EnemyMissile3D() {
+            from = Vector3.zero();
+            to = Vector3.zero();
+            pos = Vector3.zero();
+            vel = Vector3.zero();
+            alive = false;
+            expl = false;
+            ishit = false;
+            targetBuild = 0;
+            r = 0.2f;
+        }
     }
     
-    static class OurLaunchedMissile {
-        int tx, ty, tz, r;
+    // Our missile structure
+    static class OurMissile3D {
+        Vector3 target, pos, vel;
         boolean active, expl;
-        float x, y, z, dx, dy, dz;
+        float r;
+        Vector3 launchPos;
+        int smokeTick;
+        int[] smokeParticleIds;
+        int smokeCount;
+        int smokeHead;
+        
+        OurMissile3D() {
+            target = Vector3.zero();
+            pos = Vector3.zero();
+            vel = Vector3.zero();
+            active = false;
+            expl = false;
+            r = 0.15f;
+            launchPos = Vector3.zero();
+            smokeTick = 0;
+            smokeParticleIds = new int[5];
+            smokeCount = 0;
+            smokeHead = 0;
+        }
     }
     
-    static class Build {
-        int left, top, right, bottom;
-        boolean alive, isbuild;
-    }
+    // Game objects
+    private Build3D[] builds = new Build3D[MAX_BUILD];
+    private EnemyMissile3D[] enemies = new EnemyMissile3D[MAX_ENEMY];
+    private OurMissile3D[] ourMissiles = new OurMissile3D[MAX_OUR_MISSILE];
     
-    private Build[] build = new Build[MAX_BUILD];
-    private Missile[] enermy = new Missile[20];
-    private OurLaunchedMissile[] launchedMissile = new OurLaunchedMissile[maxMissile];
+    // Particle systems
+    private Particle[] smokeParticles = new Particle[MAX_SMOKE_PARTICLES];
+    private Particle[] explosionParticles = new Particle[MAX_EXPLOSION_PARTICLES];
+    private int nextSmokeIdx = 0;
+    private int nextExplosionIdx = 0;
+    
+    // Template meshes (shared)
+    private Mesh buildingMesh, destroyedMesh, launcherMesh;
+    private Mesh groundMesh;
+    private Mesh explSphere, missileSphere;
+    private Mesh ourExplSphere, ourMissileSphere;
+    
+    // Particle textures
+    private Texture smokeTexture, explosionTexture;
+    
+    // Dynamic mesh list for rendering
+    private List<Mesh> renderMeshes = new ArrayList<>();
+    private List<Mesh> trajectoryMeshes = new ArrayList<>();
     
     public MissileCmd3D(String title, int width, int height) {
         super(title, width, height);
         
+        // Initialize arrays
         for (int i = 0; i < MAX_BUILD; i++) {
-            build[i] = new Build();
+            builds[i] = new Build3D();
         }
-        for (int i = 0; i < 20; i++) {
-            enermy[i] = new Missile();
+        for (int i = 0; i < MAX_ENEMY; i++) {
+            enemies[i] = new EnemyMissile3D();
         }
-        for (int i = 0; i < maxMissile; i++) {
-            launchedMissile[i] = new OurLaunchedMissile();
+        for (int i = 0; i < MAX_OUR_MISSILE; i++) {
+            ourMissiles[i] = new OurMissile3D();
         }
-    }
-    
-    private void init3DRender() {
-        device = new Device(width, height);
-        camera = new Camera();
-        
-        // Camera setup matching ref-sdlmm
-        // Initial camera position using spherical coordinates
-        // camDist = 25.0f, camAngleX = 0.4f, camAngleY = 0.0f
-        camera.Position = new Vector3(0, 10, -25);
-        camera.Target = new Vector3(0, 2, 0);  // Look at world center, slightly above ground
-        
-        lightPosition = new Vector3(0, 20, -10);
-        
-        // Create meshes for enemy missiles
-        enemyMissileMeshes = new Mesh[20];
-        for (int i = 0; i < 20; i++) {
-            enemyMissileMeshes[i] = Mesh.createSphere(0.2f, 8, 8);
-            enemyMissileMeshes[i].name = "EnemyMissile_" + i;
+        for (int i = 0; i < MAX_SMOKE_PARTICLES; i++) {
+            smokeParticles[i] = new Particle();
         }
-        
-        // Create meshes for launched missiles
-        launchedMissileMeshes = new Mesh[maxMissile];
-        for (int i = 0; i < maxMissile; i++) {
-            launchedMissileMeshes[i] = Mesh.createSphere(0.15f, 8, 8);
-            launchedMissileMeshes[i].name = "LaunchedMissile_" + i;
-        }
-        
-        // Create meshes for buildings (world scale, not screen scale)
-        buildingMeshes = new Mesh[MAX_BUILD];
-        for (int i = 0; i < MAX_BUILD; i++) {
-            buildingMeshes[i] = Mesh.createCube();
-            buildingMeshes[i].name = "Building_" + i;
-            // Scale buildings to match world coordinates (1.5 x 2.0 x 1.5)
-            buildingMeshes[i].Rotation = new Vector3(0, 0, 0);
+        for (int i = 0; i < MAX_EXPLOSION_PARTICLES; i++) {
+            explosionParticles[i] = new Particle();
         }
     }
     
@@ -122,423 +182,753 @@ public class MissileCmd3D extends SDLMMFrame {
         return (float)Math.random();
     }
     
-    private void draw_enermy() {
-        for (int i = 0; i < 20; i++) {
-            if (!enermy[i].alive) continue;
-            if (enermy[i].expl) {
-                fillCircle((int)enermy[i].x, (int)enermy[i].y, enermy[i].r, 
-                    ((int)(Math.random() * 0xffee00)) | 0xf0f000);
-            } else {
-                drawLine(enermy[i].fx, enermy[i].fy, (int)enermy[i].x, (int)enermy[i].y, 0xff0000ff);
-                drawLine(enermy[i].fx - 1, enermy[i].fy, (int)enermy[i].x, (int)enermy[i].y, 0xff0000bb);
-                drawLine(enermy[i].fx + 1, enermy[i].fy, (int)enermy[i].x, (int)enermy[i].y, 0xff0000aa);
-                fillCircle((int)enermy[i].x, (int)enermy[i].y, enermy[i].r + 1, 0xffffff00);
-                drawCircle((int)enermy[i].x, (int)enermy[i].y, enermy[i].r, 0xffff0000);
-            }
-        }
-    }
-    
-    private void update_enermy() {
-        float GROUND_Y = -3.0f;
+    /**
+     * Generate glow texture matching reference implementation
+     */
+    private Texture generateGlowTexture(int baseColor) {
+        int size = 16;
+        Texture tex = new Texture(size, size);
         
-        for (int i = 0; i < 20; i++) {
-            if (!enermy[i].alive) continue;
-            if (enermy[i].expl) {
-                if (enermy[i].r >= maxRadius * 2) {
-                    enermy[i].alive = false;
-                    enermy[i].ishit = false;
-                    enermy[i].expl = false;
-                    if (remainEnermy - 1 >= 0)
-                        remainEnermy--;
-                }
-                enermy[i].r += 2;
-            } else {
-                // Check collision with our missiles
-                for (int j = 0; j < maxMissile; j++) {
-                    if (!launchedMissile[j].active) continue;
-                    if (launchedMissile[j].expl) {
-                        float distX = enermy[i].x - launchedMissile[j].x;
-                        float distY = enermy[i].y - launchedMissile[j].y;
-                        float distZ = enermy[i].z - launchedMissile[j].z;
-                        float dist = distX * distX + distY * distY + distZ * distZ;
-                        float explRadius = launchedMissile[j].r * 0.3f;  // Scale to world coordinates
-                        if (dist < explRadius * explRadius) {
-                            enermy[i].expl = true;
-                            enermy[i].ishit = true;
-                            score += 100;
-                            return;
-                        }
-                    }
-                }
-                
-                // Check chain reactions
-                for (int j = 0; j < 20; j++) {
-                    if (j == i) continue;
-                    if (!enermy[j].alive) continue;
-                    if (!enermy[j].expl) continue;
-                    if (!enermy[j].ishit) continue;
-                    float distX = enermy[i].x - enermy[j].x;
-                    float distY = enermy[i].y - enermy[j].y;
-                    float distZ = enermy[i].z - enermy[j].z;
-                    float dist = distX * distX + distY * distY + distZ * distZ;
-                    float explRadius = enermy[j].r * 0.3f;  // Scale to world coordinates
-                    if (dist < explRadius * explRadius) {
-                        enermy[i].expl = true;
-                        enermy[i].ishit = true;
-                        score += 100;
-                        return;
-                    }
-                }
-                
-                // Update position in world coordinates
-                enermy[i].x += enermy[i].dx;
-                enermy[i].y += enermy[i].dy;
-                enermy[i].z += enermy[i].dz;
-                
-                // Check if reached target (ground level)
-                if (enermy[i].y <= GROUND_Y + 1.0f) {
-                    enermy[i].expl = true;
-                    build[enermy[i].targetBuild].alive = false;
-                }
-            }
-        }
-    }
-    
-    private void generate_enermy() {
-        if (remainGenEnermy > 0) {
-            int currentAlive = 0;
-            for (int i = 0; i < 20; i++) {
-                if (currentAlive >= maxEnemyMissile) break;
-                if (enermy[i].alive) {
-                    currentAlive++;
-                    continue;
-                }
-                
-                // World coordinates matching ref-sdlmm
-                float WORLD_WIDTH = 20.0f;
-                float WORLD_DEPTH = 5.0f;
-                float GROUND_Y = -3.0f;
-                
-                int targetIdx = (int)(Math.random() * MAX_BUILD);
-                
-                // Enemy starts from the sky (Y=15.0) in world coordinates
-                float sx = (float)((Math.random() - 0.5) * WORLD_WIDTH);
-                float sy = 15.0f;  // from the sky
-                float sz = (float)((Math.random() - 0.5) * WORLD_DEPTH);
-                
-                // Target is the building position in world coordinates
-                float spacing = WORLD_WIDTH / MAX_BUILD;
-                float startX = -WORLD_WIDTH / 2 + spacing / 2;
-                float tx = startX + targetIdx * spacing;
-                float ty = GROUND_Y + 1.0f;  // building base at ground level
-                float tz = 0;
-                
-                float speed = 0.03f + (float)Math.random() * 0.04f;
-                float dx = tx - sx;
-                float dy = ty - sy;
-                float dz = tz - sz;
-                float len = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (len < 0.001f) len = 1.0f;
-                
-                // Store both screen coordinates (for 2D) and world coordinates (for 3D)
-                // For 2D rendering, convert world to screen
-                enermy[i].fx = (int)((sx + WORLD_WIDTH/2) / WORLD_WIDTH * width);
-                enermy[i].fy = 0;  // top of screen
-                enermy[i].tx = (build[targetIdx].left + build[targetIdx].right) / 2;
-                enermy[i].ty = build[targetIdx].top;
-                
-                // World coordinates for 3D
-                enermy[i].x = sx;
-                enermy[i].y = sy;
-                enermy[i].z = sz;
-                enermy[i].dx = dx / len * speed;
-                enermy[i].dy = dy / len * speed;
-                enermy[i].dz = dz / len * speed;
-                
-                enermy[i].expl = false;
-                enermy[i].alive = true;
-                enermy[i].r = 2;
-                enermy[i].targetBuild = targetIdx;
-                currentAlive++;
-                remainGenEnermy--;
-                if (remainGenEnermy == 0) return;
-            }
-        }
-    }
-    
-    private void init_build(int cnt) {
-        // World coordinates: X from -10 to 10, ground at Y = -3.0
-        float WORLD_WIDTH = 20.0f;
-        float GROUND_Y = -3.0f;
+        int br = (baseColor >> 16) & 0xff;
+        int bg = (baseColor >> 8) & 0xff;
+        int bb = baseColor & 0xff;
         
-        float spacing = WORLD_WIDTH / cnt;
+        float cx = size / 2.0f;
+        float cy = size / 2.0f;
+        float maxR = size / 2.0f;
+        
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                float dx = x - cx;
+                float dy = y - cy;
+                float dist = (float)Math.sqrt(dx * dx + dy * dy) / maxR;
+                if (dist > 1.0f) dist = 1.0f;
+                
+                int r, g, b;
+                if (dist < 0.3f) {
+                    float t = dist / 0.3f;
+                    r = 255 - (int)((255 - br) * t);
+                    g = 255 - (int)((255 - bg) * t);
+                    b = 255 - (int)((255 - bb) * t);
+                } else {
+                    float t = (dist - 0.3f) / 0.7f;
+                    float intensity = 1.0f - t * t;
+                    r = (int)(br * intensity);
+                    g = (int)(bg * intensity);
+                    b = (int)(bb * intensity);
+                }
+                
+                if (r > 255) r = 255; if (r < 0) r = 0;
+                if (g > 255) g = 255; if (g < 0) g = 0;
+                if (b > 255) b = 255; if (b < 0) b = 0;
+                
+                tex.internalBuffer[y * size + x] = (r << 16) | (g << 8) | b;
+            }
+        }
+        
+        return tex;
+    }
+    
+    /**
+     * Create a scaled cube mesh
+     */
+    private Mesh createScaledCube(float sx, float sy, float sz) {
+        Mesh mesh = Mesh.createCube();
+        // Scale vertices
+        for (int i = 0; i < mesh.verticesCount; i++) {
+            mesh.Vertices[i].Coordinates.x *= sx / 2.0f;
+            mesh.Vertices[i].Coordinates.y *= sy / 2.0f;
+            mesh.Vertices[i].Coordinates.z *= sz / 2.0f;
+        }
+        return mesh;
+    }
+    
+    /**
+     * Create line mesh for trajectory visualization
+     */
+    private Mesh createLineMesh(Vector3 start, Vector3 end, float width, int color) {
+        Mesh mesh = new Mesh("line", 4, 2);
+        
+        // Generate glow texture with specified color
+        mesh.texture = generateGlowTexture(color);
+        
+        // Calculate direction vector
+        Vector3 dir = end.subtract(start);
+        float len = dir.length();
+        if (len < 0.001f) len = 0.001f;
+        dir = dir.normalizeCopy();
+        
+        // Calculate perpendicular vector for width
+        Vector3 up = new Vector3(0, 1, 0);
+        Vector3 perp = Vector3.cross(dir, up);
+        float plen = perp.length();
+        if (plen < 0.001f) {
+            up = new Vector3(1, 0, 0);
+            perp = Vector3.cross(dir, up);
+            plen = perp.length();
+        }
+        perp = perp.scale(width * 0.5f / plen);
+        
+        // Create quad vertices
+        mesh.Vertices[0].Coordinates = start.subtract(perp);
+        mesh.Vertices[1].Coordinates = start.add(perp);
+        mesh.Vertices[2].Coordinates = end.subtract(perp);
+        mesh.Vertices[3].Coordinates = end.add(perp);
+        
+        // Normals face camera (billboard)
+        Vector3 normal = perp.normalizeCopy();
+        for (int i = 0; i < 4; i++) {
+            mesh.Vertices[i].Normal = normal;
+            mesh.Vertices[i].WorldCoordinates = Vector3.zero();
+            mesh.Vertices[i].TextureCoordinates = new Vector3(
+                (i % 2 == 1) ? 1.0f : 0.0f,
+                (i >= 2) ? 1.0f : 0.0f,
+                0
+            );
+        }
+        
+        // Create two triangles
+        mesh.faces[0].A = 0; mesh.faces[0].B = 1; mesh.faces[0].C = 2;
+        mesh.faces[1].A = 1; mesh.faces[1].B = 3; mesh.faces[1].C = 2;
+        
+        mesh.Position = Vector3.zero();
+        mesh.Rotation = Vector3.zero();
+        
+        return mesh;
+    }
+    
+    /**
+     * Initialize scene meshes matching reference
+     */
+    private void initSceneMeshes() {
+        // Ground plane
+        groundMesh = createScaledCube(WORLD_WIDTH + 4, 0.3f, WORLD_DEPTH + 4);
+        groundMesh.texture = generateGlowTexture(0x403020);
+        
+        // Enemy explosion sphere
+        explSphere = Mesh.createSphere(1.0f, 5, 3);
+        explSphere.texture = generateGlowTexture(0xff4010);
+        
+        // Enemy missile sphere
+        missileSphere = Mesh.createSphere(0.2f, 4, 3);
+        missileSphere.texture = generateGlowTexture(0x40ff40);
+        
+        // Our explosion sphere
+        ourExplSphere = Mesh.createSphere(0.8f, 5, 3);
+        ourExplSphere.texture = generateGlowTexture(0x40c0ff);
+        
+        // Our missile sphere
+        ourMissileSphere = Mesh.createSphere(0.15f, 4, 3);
+        ourMissileSphere.texture = generateGlowTexture(0xe0e0ff);
+        
+        // Building meshes
+        buildingMesh = createScaledCube(1.5f, 2.0f, 1.5f);
+        buildingMesh.texture = generateGlowTexture(0x6080a0);
+        
+        destroyedMesh = createScaledCube(1.5f, 0.5f, 1.5f);
+        destroyedMesh.texture = generateGlowTexture(0x804020);
+        
+        launcherMesh = createScaledCube(1.0f, 1.2f, 1.0f);
+        launcherMesh.texture = generateGlowTexture(0x60a060);
+        
+        // Create particle textures
+        smokeTexture = Texture.createGaussian(32);
+        explosionTexture = Texture.createGaussian(32);
+    }
+    
+    /**
+     * Initialize buildings
+     */
+    private void initBuilds() {
+        float spacing = WORLD_WIDTH / MAX_BUILD;
         float startX = -WORLD_WIDTH / 2 + spacing / 2;
         
-        for (int i = 0; i < cnt; i++) {
-            // Convert to screen coordinates for 2D rendering
-            build[i].left = (int)((padding + buildWidth) * i);
-            build[i].top = height - buildHeight;
-            build[i].right = build[i].left + buildWidth;
-            build[i].bottom = height;
-            build[i].alive = true;
-            build[i].isbuild = true;
+        for (int i = 0; i < MAX_BUILD; i++) {
+            builds[i].pos = new Vector3(startX + i * spacing, GROUND_Y + 1.0f, 0);
+            builds[i].alive = true;
+            builds[i].isbuild = true;
         }
         
         // Middle one is the launcher
-        build[cnt / 2].isbuild = false;
-        build[cnt / 2].top = height - launcherHeight;
+        builds[MAX_BUILD / 2].isbuild = false;
+        builds[MAX_BUILD / 2].pos.y = GROUND_Y + 0.6f;
     }
     
-    private void draw_build(int cnt) {
-        for (int i = 0; i < cnt; i++) {
-            int color = build[i].alive ? 0xff00ff00 : 0xffff0000;
-            if (build[i].isbuild) {
-                fillRect(build[i].left, build[i].top, buildWidth, buildHeight, color);
-                drawRect(build[i].left, build[i].top, buildWidth, buildHeight, 0xffffffff);
-            } else {
-                fillRect(build[i].left, build[i].top, launcherWidth, launcherHeight, 0xff0000ff);
-                drawRect(build[i].left, build[i].top, launcherWidth, launcherHeight, 0xffffffff);
+    /**
+     * Spawn smoke particle
+     */
+    private int spawnSmokeParticle(Vector3 pos) {
+        Particle p = smokeParticles[nextSmokeIdx];
+        int particleId = nextSmokeIdx;
+        nextSmokeIdx = (nextSmokeIdx + 1) % MAX_SMOKE_PARTICLES;
+        
+        p.pos = pos.copy();
+        // Small random velocity for spread
+        p.vel = new Vector3(
+            (frand() - 0.5f) * 0.02f,
+            (frand() - 0.5f) * 0.02f,
+            (frand() - 0.5f) * 0.02f
+        );
+        p.life = 1.0f;
+        p.size = 0.3f + frand() * 0.2f;
+        p.color = 0xc0c0c0;  // Light gray
+        p.active = true;
+        return particleId;
+    }
+    
+    // Fire colors for explosion particles
+    private static final int[] explosionGlowColors = {
+        0xFFFF00, 0xFFDD00, 0xFF8800, 0xFF4400, 0xFF0000
+    };
+    
+    // Lightning green colors for our missile explosions
+    private static final int[] greenGlowColors = {
+        0x40ff40, 0x50ff50, 0x60ff60, 0x30ff30, 0x70ff70
+    };
+    
+    /**
+     * Spawn explosion particles (enemy explosions - fire colors)
+     */
+    private void spawnExplosionParticles(Vector3 pos, int count) {
+        for (int i = 0; i < count; i++) {
+            Particle p = explosionParticles[nextExplosionIdx];
+            nextExplosionIdx = (nextExplosionIdx + 1) % MAX_EXPLOSION_PARTICLES;
+            
+            // Random direction
+            float theta = frand() * 2.0f * (float)Math.PI;
+            float phi = frand() * (float)Math.PI;
+            float speed = 0.05f + frand() * 0.15f;
+            
+            p.pos = pos.copy();
+            p.vel = new Vector3(
+                (float)(Math.sin(phi) * Math.cos(theta)) * speed,
+                (float)(Math.sin(phi) * Math.sin(theta)) * speed,
+                (float)(Math.cos(phi)) * speed
+            );
+            p.life = 1.0f;
+            p.size = 0.2f + frand() * 0.3f;
+            // Fire colors
+            int colorIdx = (int)(Math.random() * explosionGlowColors.length);
+            p.color = explosionGlowColors[colorIdx];
+            p.active = true;
+        }
+    }
+    
+    /**
+     * Spawn our explosion particles (lightning green colors)
+     */
+    private void spawnOurExplosionParticles(Vector3 pos, int count) {
+        for (int i = 0; i < count; i++) {
+            Particle p = explosionParticles[nextExplosionIdx];
+            nextExplosionIdx = (nextExplosionIdx + 1) % MAX_EXPLOSION_PARTICLES;
+            
+            // Random direction
+            float theta = frand() * 2.0f * (float)Math.PI;
+            float phi = frand() * (float)Math.PI;
+            float speed = 0.05f + frand() * 0.15f;
+            
+            p.pos = pos.copy();
+            p.vel = new Vector3(
+                (float)(Math.sin(phi) * Math.cos(theta)) * speed,
+                (float)(Math.sin(phi) * Math.sin(theta)) * speed,
+                (float)(Math.cos(phi)) * speed
+            );
+            p.life = 1.0f;
+            p.size = 0.2f + frand() * 0.3f;
+            // Lightning green colors
+            int colorIdx = (int)(Math.random() * greenGlowColors.length);
+            p.color = greenGlowColors[colorIdx];
+            p.active = true;
+        }
+    }
+    
+    /**
+     * Update particles
+     */
+    private void updateParticles() {
+        // Update smoke particles
+        for (int i = 0; i < MAX_SMOKE_PARTICLES; i++) {
+            if (!smokeParticles[i].active) continue;
+            
+            smokeParticles[i].pos = smokeParticles[i].pos.add(smokeParticles[i].vel);
+            
+            // Fade out
+            smokeParticles[i].life -= 0.02f;
+            if (smokeParticles[i].life <= 0) {
+                smokeParticles[i].active = false;
+            }
+        }
+        
+        // Update explosion particles
+        for (int i = 0; i < MAX_EXPLOSION_PARTICLES; i++) {
+            if (!explosionParticles[i].active) continue;
+            
+            explosionParticles[i].pos = explosionParticles[i].pos.add(explosionParticles[i].vel);
+            
+            // Expand and fade
+            explosionParticles[i].size += 0.03f;
+            explosionParticles[i].life -= 0.015f;
+            
+            if (explosionParticles[i].life <= 0) {
+                explosionParticles[i].active = false;
             }
         }
     }
     
-    private void update_missile() {
-        for (int i = 0; i < maxMissile; i++) {
-            if (!launchedMissile[i].active) continue;
-            if (!launchedMissile[i].expl) {
-                // Check if reached target in world coordinates
-                float dx = launchedMissile[i].tx - launchedMissile[i].x;
-                float dy = launchedMissile[i].ty - launchedMissile[i].y;
-                float dz = launchedMissile[i].tz - launchedMissile[i].z;
-                float dist = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+    /**
+     * Generate enemy missiles
+     */
+    private void generateEnemy() {
+        if (remainGenEnemy <= 0) return;
+        
+        for (int i = 0; i < MAX_ENEMY; i++) {
+            if (enemies[i].alive) continue;
+            if (remainGenEnemy <= 0) return;
+            
+            int targetIdx = (int)(Math.random() * MAX_BUILD);
+            float sx = (frand() - 0.5f) * WORLD_WIDTH;
+            float sy = 15.0f;  // from the sky
+            float sz = (frand() - 0.5f) * WORLD_DEPTH;
+            float tx = builds[targetIdx].pos.x;
+            float ty = builds[targetIdx].pos.y;
+            float tz = builds[targetIdx].pos.z;
+            float speed = 0.03f + frand() * 0.04f;
+            
+            float dx = tx - sx, dy = ty - sy, dz = tz - sz;
+            float len = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (len < 0.001f) len = 1.0f;
+            
+            enemies[i].from = new Vector3(sx, sy, sz);
+            enemies[i].to = new Vector3(tx, ty, tz);
+            enemies[i].pos = new Vector3(sx, sy, sz);
+            enemies[i].vel = new Vector3(dx / len * speed, dy / len * speed, dz / len * speed);
+            enemies[i].alive = true;
+            enemies[i].expl = false;
+            enemies[i].ishit = false;
+            enemies[i].r = 0.2f;
+            enemies[i].targetBuild = targetIdx;
+            remainGenEnemy--;
+        }
+    }
+    
+    /**
+     * Update enemy missiles
+     */
+    private void updateEnemies() {
+        for (int i = 0; i < MAX_ENEMY; i++) {
+            if (!enemies[i].alive) continue;
+            
+            if (enemies[i].expl) {
+                enemies[i].r += 0.15f;
+                // Spawn explosion particles for enemy explosions
+                if (enemies[i].r < ENEMY_MAX_EXPL_R && Math.random() < 0.33) {
+                    spawnExplosionParticles(enemies[i].pos, 3);
+                }
+                if (enemies[i].r >= ENEMY_MAX_EXPL_R) {
+                    enemies[i].alive = false;
+                    enemies[i].expl = false;
+                    enemies[i].ishit = false;
+                    if (remainEnemy > 0) remainEnemy--;
+                }
+                continue;
+            }
+            
+            // Check collision with our explosions
+            for (int j = 0; j < MAX_OUR_MISSILE; j++) {
+                if (!ourMissiles[j].active || !ourMissiles[j].expl) continue;
+                float dx = enemies[i].pos.x - ourMissiles[j].pos.x;
+                float dy = enemies[i].pos.y - ourMissiles[j].pos.y;
+                float dz = enemies[i].pos.z - ourMissiles[j].pos.z;
+                if (dx * dx + dy * dy + dz * dz < ourMissiles[j].r * ourMissiles[j].r) {
+                    enemies[i].expl = true;
+                    enemies[i].ishit = true;
+                    score += 100;
+                    // Spawn initial explosion particles
+                    spawnExplosionParticles(enemies[i].pos, 50);
+                    break;
+                }
+            }
+            if (enemies[i].expl) continue;
+            
+            // Check chain-reaction with other exploding enemies
+            for (int j = 0; j < MAX_ENEMY; j++) {
+                if (j == i || !enemies[j].alive || !enemies[j].expl || !enemies[j].ishit) continue;
+                float dx = enemies[i].pos.x - enemies[j].pos.x;
+                float dy = enemies[i].pos.y - enemies[j].pos.y;
+                float dz = enemies[i].pos.z - enemies[j].pos.z;
+                if (dx * dx + dy * dy + dz * dz < enemies[j].r * enemies[j].r) {
+                    enemies[i].expl = true;
+                    enemies[i].ishit = true;
+                    score += 100;
+                    // Spawn initial explosion particles
+                    spawnExplosionParticles(enemies[i].pos, 50);
+                    break;
+                }
+            }
+            if (enemies[i].expl) continue;
+            
+            // Move
+            enemies[i].pos = enemies[i].pos.add(enemies[i].vel);
+            
+            // Check if reached target
+            float dx = enemies[i].to.x - enemies[i].pos.x;
+            float dy = enemies[i].to.y - enemies[i].pos.y;
+            float dz = enemies[i].to.z - enemies[i].pos.z;
+            if (dx * dx + dy * dy + dz * dz < 0.5f) {
+                enemies[i].expl = true;
+                builds[enemies[i].targetBuild].alive = false;
+                // Spawn initial explosion particles
+                spawnExplosionParticles(enemies[i].pos, 50);
+            }
+        }
+    }
+    
+    /**
+     * Update our missiles
+     */
+    private void updateOurMissiles() {
+        for (int i = 0; i < MAX_OUR_MISSILE; i++) {
+            if (!ourMissiles[i].active) continue;
+            
+            if (!ourMissiles[i].expl) {
+                // Spawn smoke particles periodically - limit to 5 particles
+                ourMissiles[i].smokeTick++;
+                if (ourMissiles[i].smokeTick % 2 == 0) {
+                    int particleId = spawnSmokeParticle(ourMissiles[i].pos);
+                    // If we already have 5 smoke particles, replace the oldest one
+                    if (ourMissiles[i].smokeCount >= 5) {
+                        // Deactivate the oldest particle at the head position
+                        smokeParticles[ourMissiles[i].smokeParticleIds[ourMissiles[i].smokeHead]].active = false;
+                        // Replace with new particle
+                        ourMissiles[i].smokeParticleIds[ourMissiles[i].smokeHead] = particleId;
+                        // Move head to next position in circular buffer
+                        ourMissiles[i].smokeHead = (ourMissiles[i].smokeHead + 1) % 5;
+                    } else {
+                        // Still filling up the initial 5 particles
+                        ourMissiles[i].smokeParticleIds[ourMissiles[i].smokeCount] = particleId;
+                        ourMissiles[i].smokeCount++;
+                    }
+                }
                 
-                if (dist < 0.5f) {  // Close enough to target in world units
-                    launchedMissile[i].expl = true;
+                float dx = ourMissiles[i].target.x - ourMissiles[i].pos.x;
+                float dy = ourMissiles[i].target.y - ourMissiles[i].pos.y;
+                float dz = ourMissiles[i].target.z - ourMissiles[i].pos.z;
+                if (dx * dx + dy * dy + dz * dz < 0.5f) {
+                    ourMissiles[i].expl = true;
+                    ourMissiles[i].r = 0.3f;
+                    // Spawn explosion particles with lightning green color
+                    spawnOurExplosionParticles(ourMissiles[i].pos, 50);
                 }
-                launchedMissile[i].x += launchedMissile[i].dx;
-                launchedMissile[i].y += launchedMissile[i].dy;
-                launchedMissile[i].z += launchedMissile[i].dz;
+                ourMissiles[i].pos = ourMissiles[i].pos.add(ourMissiles[i].vel);
             } else {
-                if (launchedMissile[i].r < maxRadius) {
-                    launchedMissile[i].r++;
+                if (ourMissiles[i].r < MAX_EXPL_R) {
+                    ourMissiles[i].r += 0.08f;
+                    // Continue spawning explosion particles
+                    if (Math.random() < 0.33) {
+                        spawnOurExplosionParticles(ourMissiles[i].pos, 3);
+                    }
                 } else {
-                    launchedMissile[i].active = false;
-                    launchedMissile[i].expl = false;
+                    ourMissiles[i].active = false;
+                    ourMissiles[i].expl = false;
                 }
             }
         }
     }
     
-    private void drawMessage() {
-        String cscore = String.format("Score:%04d", score);
-        String cmissile = String.format(":%04d", remainMissile);
-        String cenermy = String.format("Enemy:%03d/%03d", remainEnermy, remainGenEnermy);
-        drawString(cscore, 0, 0, 0xffffffff);
-        drawString(cmissile, width - 80, 24, 0xffffffff);
-        drawString(cenermy, width - 200, 0, 0xffffffff);
+    /**
+     * Launch missile with proper screen-to-world unprojection
+     */
+    private void launchMissile(int screenX, int screenY) {
+        if (remainMissile <= 0) return;
         
-        // Show help text matching ref-sdlmm
-        if (showHelp) {
-            drawString("[click]fire [+/-]zoom [h]help [d]2D/3D", 5, height - 25, 0xaaaaaa);
-        }
-        
-        // Show crosshair at mouse position
-        if (mx > 0 && my > 0) {
-            int crosshairSize = 10;
-            drawLine(mx - crosshairSize, my, mx + crosshairSize, my, 0xffffffff);
-            drawLine(mx, my - crosshairSize, mx, my + crosshairSize, 0xffffffff);
-        }
-    }
-    
-    private void draw_missile() {
-        for (int i = 0; i < maxMissile; i++) {
-            if (!launchedMissile[i].active) continue;
-            if (!launchedMissile[i].expl) {
-                float dx = launchedMissile[i].dx;
-                float dy = launchedMissile[i].dy;
-                fillCircle((int)launchedMissile[i].x, (int)launchedMissile[i].y, 
-                    launchedMissile[i].r, 0xffffff00);
-                for (int j = 0; j < 8; j++) {
-                    fillCircle((int)(launchedMissile[i].x - j * dx), 
-                        (int)(launchedMissile[i].y - j * dy), 
-                        launchedMissile[i].r + j, 
-                        0xffffff - 0x101010 * (j + 1));
+        for (int i = 0; i < MAX_OUR_MISSILE; i++) {
+            if (!ourMissiles[i].active) {
+                // Proper screen-to-world unprojection using camera matrices
+                Vector3 up = Vector3.up();
+                Matrix viewMatrix = Matrix.lookAtLH(camera.Position, camera.Target, up);
+                Matrix projectionMatrix = Matrix.perspectiveFovLH(0.78f,
+                    (float)width / (float)height, 0.01f, 1000.0f);
+                Matrix viewProj = viewMatrix.multiply(projectionMatrix);
+                Matrix invViewProj = viewProj.copy();
+                invViewProj.invert();
+                
+                // Convert screen coordinates to normalized device coordinates (NDC)
+                float ndcX = ((float)screenX / width) * 2.0f - 1.0f;
+                float ndcY = 1.0f - ((float)screenY / height) * 2.0f;
+                
+                // Unproject to world space at near and far planes
+                Vector3 nearPoint = new Vector3(ndcX, ndcY, 0.0f);
+                Vector3 farPoint = new Vector3(ndcX, ndcY, 1.0f);
+                
+                Vector3 worldNear = nearPoint.transformCoordinates(invViewProj);
+                Vector3 worldFar = farPoint.transformCoordinates(invViewProj);
+                
+                // Create ray from near to far
+                Vector3 rayDir = worldFar.subtract(worldNear);
+                rayDir = rayDir.normalizeCopy();
+                
+                // Intersect ray with a plane at z = 0
+                Vector3 targetPos;
+                if (Math.abs(rayDir.z) < 0.0001f) {
+                    targetPos = new Vector3(0.0f, 2.0f, 0.0f);
+                } else {
+                    float t = -worldNear.z / rayDir.z;
+                    if (t < 0.0f) {
+                        targetPos = new Vector3(0.0f, 2.0f, 0.0f);
+                    } else {
+                        targetPos = new Vector3(
+                            worldNear.x + rayDir.x * t,
+                            worldNear.y + rayDir.y * t,
+                            0.0f
+                        );
+                    }
                 }
-            } else {
-                fillCircle((int)launchedMissile[i].x, (int)launchedMissile[i].y, 
-                    launchedMissile[i].r, (int)(Math.random() * 0xFFFFFF) << 9);
+                
+                // Clamp to reasonable bounds
+                if (targetPos.x < -WORLD_WIDTH / 2) targetPos.x = -WORLD_WIDTH / 2;
+                if (targetPos.x > WORLD_WIDTH / 2) targetPos.x = WORLD_WIDTH / 2;
+                if (targetPos.y < GROUND_Y) targetPos.y = GROUND_Y;
+                if (targetPos.y > 10.0f) targetPos.y = 10.0f;
+                
+                // Launch from the launcher building position
+                Vector3 launcherPos = builds[MAX_BUILD / 2].pos.copy();
+                float tx = targetPos.x, ty = targetPos.y, tz = targetPos.z;
+                float dx = tx - launcherPos.x;
+                float dy = ty - launcherPos.y;
+                float dz = tz - launcherPos.z;
+                float len = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (len < 0.001f) len = 1.0f;
+                float speed = 0.5f;
+                
+                ourMissiles[i].active = true;
+                ourMissiles[i].expl = false;
+                ourMissiles[i].pos = launcherPos;
+                ourMissiles[i].launchPos = launcherPos;
+                ourMissiles[i].smokeTick = 0;
+                ourMissiles[i].smokeCount = 0;
+                ourMissiles[i].smokeHead = 0;
+                ourMissiles[i].target = new Vector3(tx, ty, tz);
+                ourMissiles[i].vel = new Vector3(dx / len * speed, dy / len * speed, dz / len * speed);
+                ourMissiles[i].r = 0.15f;
+                remainMissile--;
+                break;
             }
         }
     }
     
-    private void render3D() {
-        // Camera stays FIXED at these angles (matching ref-sdlmm)
-        // Only camDist changes with mouse wheel zoom
+    /**
+     * Check for round reset
+     */
+    private void checkReinit() {
+        if (remainEnemy <= 0 && remainGenEnemy <= 0) {
+            initBuilds();
+            remainEnemy = 40;
+            remainGenEnemy = 40;
+            remainMissile = 45;
+            
+            for (int i = 0; i < MAX_ENEMY; i++) {
+                enemies[i].alive = false;
+                enemies[i].expl = false;
+                enemies[i].ishit = false;
+            }
+            for (int i = 0; i < MAX_OUR_MISSILE; i++) {
+                ourMissiles[i].active = false;
+                ourMissiles[i].expl = false;
+            }
+        }
+    }
+    
+    /**
+     * Create a copy of a mesh template at a specific position
+     */
+    private Mesh meshAt(Mesh template, Vector3 pos) {
+        Mesh copy = new Mesh(template.name, template.verticesCount, template.faceCount);
+        // Copy vertices
+        for (int i = 0; i < template.verticesCount; i++) {
+            copy.Vertices[i].Coordinates = template.Vertices[i].Coordinates.copy();
+            copy.Vertices[i].Normal = template.Vertices[i].Normal.copy();
+            copy.Vertices[i].TextureCoordinates = template.Vertices[i].TextureCoordinates.copy();
+            copy.Vertices[i].WorldCoordinates = Vector3.zero();
+        }
+        // Copy faces
+        for (int i = 0; i < template.faceCount; i++) {
+            copy.faces[i].A = template.faces[i].A;
+            copy.faces[i].B = template.faces[i].B;
+            copy.faces[i].C = template.faces[i].C;
+        }
+        // Set position and rotation
+        copy.Position = pos.copy();
+        copy.Rotation = template.Rotation.copy();
+        copy.texture = template.texture;
+        return copy;
+    }
+    
+    /**
+     * Draw the complete 3D scene matching reference
+     */
+    private void drawScene() {
+        Vector3 lightPos = new Vector3(5, 15, -10);
+        
+        checkReinit();
+        updateEnemies();
+        updateOurMissiles();
+        updateParticles();
+        if (Math.random() * 100 < 15) generateEnemy();
+        
+        // Update camera
         camera.Position = new Vector3(
             (float)(camDist * Math.sin(camAngleY) * Math.cos(camAngleX)),
             (float)(camDist * Math.sin(camAngleX)),
             (float)(-camDist * Math.cos(camAngleY) * Math.cos(camAngleX))
         );
-        camera.Target = new Vector3(0, 2, 0);  // Look at center, slightly above ground
+        camera.Target = new Vector3(0, 2, 0);
         
-        // World coordinates
-        float WORLD_WIDTH = 20.0f;
-        float GROUND_Y = -3.0f;
-        
-        // Update enemy missile positions (using world coordinates)
-        for (int i = 0; i < 20; i++) {
-            if (enermy[i].alive) {
-                enemyMissileMeshes[i].Position = new Vector3(enermy[i].x, enermy[i].y, enermy[i].z);
-            } else {
-                enemyMissileMeshes[i].Position = new Vector3(-10000, -10000, -10000);
-            }
-        }
-        
-        // Update our missile positions (using world coordinates)
-        for (int i = 0; i < maxMissile; i++) {
-            if (launchedMissile[i].active) {
-                launchedMissileMeshes[i].Position = new Vector3(
-                    launchedMissile[i].x, launchedMissile[i].y, launchedMissile[i].z);
-            } else {
-                launchedMissileMeshes[i].Position = new Vector3(-10000, -10000, -10000);
-            }
-        }
-        
-        // Update building positions (world coordinates)
-        float spacing = WORLD_WIDTH / MAX_BUILD;
-        float startX = -WORLD_WIDTH / 2 + spacing / 2;
-        for (int i = 0; i < MAX_BUILD; i++) {
-            float buildX = startX + i * spacing;
-            float buildY = GROUND_Y + 1.0f;  // buildings sit on ground
-            if (!build[i].isbuild) {
-                buildY = GROUND_Y + 0.6f;  // launcher is shorter
-            }
-            buildingMeshes[i].Position = new Vector3(buildX, buildY, 0);
-            
-            // Scale buildings appropriately
-            if (build[i].isbuild) {
-                // Regular building: 1.5 x 2.0 x 1.5
-                buildingMeshes[i].Rotation = new Vector3(0, 0, 0);
-            } else {
-                // Launcher: 1.0 x 1.2 x 1.0 (smaller)
-                buildingMeshes[i].Rotation = new Vector3(0, 0, 0);
-            }
-        }
-        
-        // Combine all meshes for rendering
-        Mesh[] allMeshes = new Mesh[20 + maxMissile + MAX_BUILD];
-        System.arraycopy(enemyMissileMeshes, 0, allMeshes, 0, 20);
-        System.arraycopy(launchedMissileMeshes, 0, allMeshes, 20, maxMissile);
-        System.arraycopy(buildingMeshes, 0, allMeshes, 20 + maxMissile, MAX_BUILD);
-        
+        // Clear and draw purple gradient sky background
         device.clear();
-        device.render(camera, allMeshes, lightPosition);
+        for (int by = 0; by < height; by++) {
+            float t = (float)by / height;
+            int r = (int)(20 + t * 40);
+            int g = (int)(0 + t * 15);
+            int b = (int)(60 + t * 50);
+            int color = 0xFF000000 | (r << 16) | (g << 8) | b;
+            for (int bx = 0; bx < width; bx++) {
+                device.backbuffer[by * width + bx] = color;
+            }
+        }
         
-        // Present rendered backbuffer to screen using Babylon3D API
-        device.presentToScreen(this);
-    }
-    
-    private void reinit() {
-        if (remainEnermy <= 0 && remainGenEnermy <= 0) {
-            init_build(MAX_BUILD);
-            remainEnermy = 40;
-            remainGenEnermy = 40;
-            remainMissile = 45;
+        // Build render mesh list
+        renderMeshes.clear();
+        
+        // Ground plane
+        renderMeshes.add(meshAt(groundMesh, new Vector3(0, GROUND_Y - 0.15f, 0)));
+        
+        // Buildings and launcher
+        for (int i = 0; i < MAX_BUILD; i++) {
+            if (builds[i].isbuild) {
+                if (builds[i].alive) {
+                    renderMeshes.add(meshAt(buildingMesh, builds[i].pos));
+                } else {
+                    renderMeshes.add(meshAt(destroyedMesh, builds[i].pos));
+                }
+            } else {
+                renderMeshes.add(meshAt(launcherMesh, builds[i].pos));
+            }
+        }
+        
+        // Enemy missiles (only render when not exploding - explosions use particles)
+        for (int i = 0; i < MAX_ENEMY; i++) {
+            if (enemies[i].alive && !enemies[i].expl) {
+                renderMeshes.add(meshAt(missileSphere, enemies[i].pos));
+            }
+        }
+        
+        // Our missiles (only render when not exploding - explosions use particles)
+        for (int i = 0; i < MAX_OUR_MISSILE; i++) {
+            if (ourMissiles[i].active && !ourMissiles[i].expl) {
+                renderMeshes.add(meshAt(ourMissileSphere, ourMissiles[i].pos));
+            }
+        }
+        
+        // Trajectory lines as meshes
+        // Enemy missile trajectories
+        for (int i = 0; i < MAX_ENEMY; i++) {
+            if (enemies[i].alive) {
+                renderMeshes.add(createLineMesh(enemies[i].from, enemies[i].pos, 0.05f, 0x00ffff));
+            }
+        }
+        
+        // Our missile trajectories
+        for (int i = 0; i < MAX_OUR_MISSILE; i++) {
+            if (ourMissiles[i].active) {
+                renderMeshes.add(createLineMesh(ourMissiles[i].launchPos, ourMissiles[i].pos, 0.05f, 0xffff00));
+            }
+        }
+        
+        // Render all meshes
+        Mesh[] meshArray = renderMeshes.toArray(new Mesh[0]);
+        device.render(camera, meshArray, lightPos);
+        
+        // Render smoke particles
+        {
+            int particleCount = 0;
+            for (int i = 0; i < MAX_SMOKE_PARTICLES; i++) {
+                if (smokeParticles[i].active) particleCount++;
+            }
             
-            // Clear all enemy and missile arrays (matching ref-sdlmm memset)
-            for (int i = 0; i < 20; i++) {
-                enermy[i].alive = false;
-                enermy[i].expl = false;
-                enermy[i].ishit = false;
-                enermy[i].x = 0;
-                enermy[i].y = 0;
-                enermy[i].z = 0;
+            if (particleCount > 0) {
+                Vector3[] particlePositions = new Vector3[particleCount];
+                int[] particleColors = new int[particleCount];
+                int idx = 0;
+                
+                for (int i = 0; i < MAX_SMOKE_PARTICLES; i++) {
+                    if (smokeParticles[i].active) {
+                        particlePositions[idx] = smokeParticles[i].pos;
+                        // Apply alpha based on life
+                        int alpha = (int)(smokeParticles[i].life * SMOKE_MAX_ALPHA);
+                        particleColors[idx] = (alpha << 24) | smokeParticles[i].color;
+                        idx++;
+                    }
+                }
+                
+                // Render smoke with transparency
+                device.renderParticles(camera, particlePositions, particleColors,
+                    particleCount, 8.0f, smokeTexture, false);
             }
-            for (int i = 0; i < maxMissile; i++) {
-                launchedMissile[i].active = false;
-                launchedMissile[i].expl = false;
-                launchedMissile[i].x = 0;
-                launchedMissile[i].y = 0;
-                launchedMissile[i].z = 0;
+        }
+        
+        // Render explosion particles
+        {
+            int particleCount = 0;
+            for (int i = 0; i < MAX_EXPLOSION_PARTICLES; i++) {
+                if (explosionParticles[i].active) particleCount++;
+            }
+            
+            if (particleCount > 0) {
+                Vector3[] particlePositions = new Vector3[particleCount];
+                int[] particleColors = new int[particleCount];
+                int idx = 0;
+                
+                for (int i = 0; i < MAX_EXPLOSION_PARTICLES; i++) {
+                    if (explosionParticles[i].active) {
+                        particlePositions[idx] = explosionParticles[i].pos;
+                        // Apply alpha based on life
+                        int alpha = (int)(explosionParticles[i].life * 255);
+                        particleColors[idx] = (alpha << 24) | explosionParticles[i].color;
+                        idx++;
+                    }
+                }
+                
+                // Render explosions with additive blending
+                device.renderParticles(camera, particlePositions, particleColors,
+                    particleCount, 10.0f, explosionTexture, true);
             }
         }
-    }
-    
-    private void drawfnc() {
-        reinit();
         
-        if (use3DRender) {
-            render3D();
-        } else {
-            fillRect(0, 0, width, height, 0xff2200dd);
-            draw_build(MAX_BUILD);
-            draw_missile();
-            draw_enermy();
+        // HUD overlay
+        String buf = String.format("Score:%04d", score);
+        drawString(buf, 5, 5, 0xffffff);
+        buf = String.format("Missiles:%03d", remainMissile);
+        drawString(buf, 5, 25, 0xffffff);
+        buf = String.format("Enemy:%03d/%03d", remainEnemy, remainGenEnemy);
+        drawString(buf, width - 200, 5, 0xffffff);
+        if (showhelp == 1) {
+            drawString("[click]fire [wheel]zoom [h]help", 5, height - 25, 0xaaaaaa);
         }
         
-        update_missile();
-        update_enermy();
-        drawMessage();
+        // Draw crosshair at mouse position
+        drawLine(mx - 8, my, mx + 8, my, 0x00ff00);
+        drawLine(mx, my - 8, mx, my + 8, 0x00ff00);
         
-        if (Math.random() * 100 < 20) {
-            generate_enermy();
-        }
-        
+        // Present to screen
+        device.presentToScreen(this);
         flush();
         sleep(16);
     }
     
+    // Event handlers
     private void onmotion(int x, int y, int on) {
         mx = x;
         my = y;
-    }
-    
-    private void generate_missile(int mx, int my) {
-        if (remainMissile <= 0) return;
-        for (int i = 0; i < maxMissile; i++) {
-            if (!launchedMissile[i].active) {
-                // World coordinates
-                float WORLD_WIDTH = 20.0f;
-                float GROUND_Y = -3.0f;
-                
-                // Launcher position (middle building in world coords)
-                float spacing = WORLD_WIDTH / MAX_BUILD;
-                float startX = -WORLD_WIDTH / 2 + spacing / 2;
-                float launcherX = startX + (MAX_BUILD / 2) * spacing;
-                float launcherY = GROUND_Y + 0.6f;
-                float launcherZ = 0;
-                
-                // Convert mouse screen coordinates to world coordinates
-                // Simple mapping: screen X [0, width] -> world X [-10, 10]
-                //                 screen Y [0, height] -> world Y [10, -3]
-                float tx = (mx / (float)width) * WORLD_WIDTH - WORLD_WIDTH / 2;
-                float ty = 10.0f - (my / (float)height) * 13.0f;  // Map screen Y to world Y (10 to -3)
-                float tz = 0;  // Target on z=0 plane
-                
-                // Calculate velocity
-                float dx = tx - launcherX;
-                float dy = ty - launcherY;
-                float dz = tz - launcherZ;
-                float len = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (len < 0.001f) len = 1.0f;
-                float speed = 0.5f;
-                
-                launchedMissile[i].active = true;
-                launchedMissile[i].x = launcherX;
-                launchedMissile[i].y = launcherY;
-                launchedMissile[i].z = launcherZ;
-                launchedMissile[i].r = 3;
-                launchedMissile[i].tx = (int)tx;  // Store for compatibility
-                launchedMissile[i].ty = (int)ty;
-                launchedMissile[i].tz = (int)tz;
-                launchedMissile[i].dx = dx / len * speed;
-                launchedMissile[i].dy = dy / len * speed;
-                launchedMissile[i].dz = dz / len * speed;
-                launchedMissile[i].expl = false;
-                remainMissile--;
-                break;
-            }
-        }
     }
     
     SDLMMInterface.OnMouseMotionListener mousemotion = new SDLMMInterface.OnMouseMotionListener() {
@@ -554,7 +944,7 @@ public class MissileCmd3D extends SDLMMFrame {
             mx = x;
             my = y;
             if (ison) {
-                generate_missile(mx, my);
+                launchMissile(mx, my);
             }
         }
     };
@@ -564,13 +954,9 @@ public class MissileCmd3D extends SDLMMFrame {
         public void onkey(int key, boolean shift, boolean ctrl, boolean alt, boolean ison) {
             if (!ison) return;
             switch (key) {
-                case 'd':
-                case 'D':
-                    use3DRender = !use3DRender;
-                    break;
                 case 'h':
                 case 'H':
-                    showHelp = !showHelp;
+                    showhelp = 1 - showhelp;
                     break;
                 case '+':
                 case '=':
@@ -588,20 +974,30 @@ public class MissileCmd3D extends SDLMMFrame {
     
     @Override
     public void run() {
-        init_build(MAX_BUILD);
-        init3DRender();
+        // Initialize 3D device
+        device = new Device(width, height);
+        camera = new Camera();
+        camera.Position = new Vector3(0, 10, -25);
+        camera.Target = new Vector3(0, 2, 0);
+        
+        // Initialize scene
+        initSceneMeshes();
+        initBuilds();
+        
+        // Set event handlers
         setOnMouseMotion(mousemotion);
         setOnMousePress(onmouse);
         setOnKeyboard(kbfnc);
         setTextFont("Consolas-20");
         
+        // Main game loop
         while (true) {
-            drawfnc();
+            drawScene();
         }
     }
     
     public static void main(String[] args) {
-        MissileCmd3D demo = new MissileCmd3D("Missile Command 3D [demo]", width, height);
+        MissileCmd3D demo = new MissileCmd3D("Missile Command 3D (Babylon3D)", width, height);
         demo.setVisible(true);
     }
 }
