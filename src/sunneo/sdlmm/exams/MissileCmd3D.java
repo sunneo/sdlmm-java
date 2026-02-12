@@ -16,6 +16,7 @@ public class MissileCmd3D extends SDLMMFrame {
     private static final int buildHeight = 128;
     private static final int launcherWidth = 128;
     private static final int launcherHeight = 128;
+    private static final int padding = 10;
     private static final int width = 800;
     private static final int height = 600;
     private static final int maxRadius = 32;
@@ -79,29 +80,36 @@ public class MissileCmd3D extends SDLMMFrame {
     private void init3DRender() {
         device = new Device(width, height);
         camera = new Camera();
-        camera.Position = new Vector3(400, 300, -800);
-        camera.Target = new Vector3(400, 300, 0);
-        lightPosition = new Vector3(400, 1000, -500);
+        
+        // Camera setup matching ref-sdlmm
+        // Initial camera position using spherical coordinates
+        // camDist = 25.0f, camAngleX = 0.4f, camAngleY = 0.0f
+        camera.Position = new Vector3(0, 10, -25);
+        camera.Target = new Vector3(0, 2, 0);  // Look at world center, slightly above ground
+        
+        lightPosition = new Vector3(0, 20, -10);
         
         // Create meshes for enemy missiles
         enemyMissileMeshes = new Mesh[20];
         for (int i = 0; i < 20; i++) {
-            enemyMissileMeshes[i] = Mesh.createSphere(5.0f, 8, 8);
+            enemyMissileMeshes[i] = Mesh.createSphere(0.2f, 8, 8);
             enemyMissileMeshes[i].name = "EnemyMissile_" + i;
         }
         
         // Create meshes for launched missiles
         launchedMissileMeshes = new Mesh[maxMissile];
         for (int i = 0; i < maxMissile; i++) {
-            launchedMissileMeshes[i] = Mesh.createSphere(3.0f, 8, 8);
+            launchedMissileMeshes[i] = Mesh.createSphere(0.15f, 8, 8);
             launchedMissileMeshes[i].name = "LaunchedMissile_" + i;
         }
         
-        // Create meshes for buildings
+        // Create meshes for buildings (world scale, not screen scale)
         buildingMeshes = new Mesh[MAX_BUILD];
         for (int i = 0; i < MAX_BUILD; i++) {
             buildingMeshes[i] = Mesh.createCube();
             buildingMeshes[i].name = "Building_" + i;
+            // Scale buildings to match world coordinates (1.5 x 2.0 x 1.5)
+            buildingMeshes[i].Rotation = new Vector3(0, 0, 0);
         }
     }
     
@@ -126,6 +134,8 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     private void update_enermy() {
+        float GROUND_Y = -3.0f;
+        
         for (int i = 0; i < 20; i++) {
             if (!enermy[i].alive) continue;
             if (enermy[i].expl) {
@@ -145,8 +155,9 @@ public class MissileCmd3D extends SDLMMFrame {
                         float distX = enermy[i].x - launchedMissile[j].x;
                         float distY = enermy[i].y - launchedMissile[j].y;
                         float distZ = enermy[i].z - launchedMissile[j].z;
-                        if (distX * distX + distY * distY + distZ * distZ < 
-                            launchedMissile[j].r * launchedMissile[j].r) {
+                        float dist = distX * distX + distY * distY + distZ * distZ;
+                        float explRadius = launchedMissile[j].r * 0.3f;  // Scale to world coordinates
+                        if (dist < explRadius * explRadius) {
                             enermy[i].expl = true;
                             enermy[i].ishit = true;
                             score += 100;
@@ -164,8 +175,9 @@ public class MissileCmd3D extends SDLMMFrame {
                     float distX = enermy[i].x - enermy[j].x;
                     float distY = enermy[i].y - enermy[j].y;
                     float distZ = enermy[i].z - enermy[j].z;
-                    if (distX * distX + distY * distY + distZ * distZ < 
-                        enermy[j].r * enermy[j].r) {
+                    float dist = distX * distX + distY * distY + distZ * distZ;
+                    float explRadius = enermy[j].r * 0.3f;  // Scale to world coordinates
+                    if (dist < explRadius * explRadius) {
                         enermy[i].expl = true;
                         enermy[i].ishit = true;
                         score += 100;
@@ -173,12 +185,13 @@ public class MissileCmd3D extends SDLMMFrame {
                     }
                 }
                 
+                // Update position in world coordinates
                 enermy[i].x += enermy[i].dx;
                 enermy[i].y += enermy[i].dy;
                 enermy[i].z += enermy[i].dz;
                 
-                if ((int)(enermy[i].tx - enermy[i].x) <= 0 && 
-                    (int)(enermy[i].ty - enermy[i].y) >= 0) {
+                // Check if reached target (ground level)
+                if (enermy[i].y <= GROUND_Y + 1.0f) {
                     enermy[i].expl = true;
                     build[enermy[i].targetBuild].alive = false;
                 }
@@ -196,25 +209,47 @@ public class MissileCmd3D extends SDLMMFrame {
                     continue;
                 }
                 
+                // World coordinates matching ref-sdlmm
+                float WORLD_WIDTH = 20.0f;
+                float WORLD_DEPTH = 5.0f;
+                float GROUND_Y = -3.0f;
+                
                 int targetIdx = (int)(Math.random() * MAX_BUILD);
-                int sx = (int)(Math.random() * width);
-                int sy = 0;
-                int tx = (build[targetIdx].left + build[targetIdx].right) / 2;
-                int ty = build[targetIdx].top;
-                int enermySpeed = (int)(Math.random() * MAX_ENERMY_SPEED);
-                if (enermySpeed == 0) enermySpeed = 1;
                 
-                float dx = ((float)(tx - sx)) / (1024 / enermySpeed);
-                float dy = ((float)(ty - sy)) / (1024 / enermySpeed);
+                // Enemy starts from the sky (Y=15.0) in world coordinates
+                float sx = (float)((Math.random() - 0.5) * WORLD_WIDTH);
+                float sy = 15.0f;  // from the sky
+                float sz = (float)((Math.random() - 0.5) * WORLD_DEPTH);
                 
-                enermy[i].x = enermy[i].fx = sx;
-                enermy[i].y = enermy[i].fy = sy;
-                enermy[i].z = (float)(Math.random() * 200 - 100);
-                enermy[i].dx = dx;
-                enermy[i].dy = dy;
-                enermy[i].dz = 0;
-                enermy[i].tx = tx;
-                enermy[i].ty = ty;
+                // Target is the building position in world coordinates
+                float spacing = WORLD_WIDTH / MAX_BUILD;
+                float startX = -WORLD_WIDTH / 2 + spacing / 2;
+                float tx = startX + targetIdx * spacing;
+                float ty = GROUND_Y + 1.0f;  // building base at ground level
+                float tz = 0;
+                
+                float speed = 0.03f + (float)Math.random() * 0.04f;
+                float dx = tx - sx;
+                float dy = ty - sy;
+                float dz = tz - sz;
+                float len = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (len < 0.001f) len = 1.0f;
+                
+                // Store both screen coordinates (for 2D) and world coordinates (for 3D)
+                // For 2D rendering, convert world to screen
+                enermy[i].fx = (int)((sx + WORLD_WIDTH/2) / WORLD_WIDTH * width);
+                enermy[i].fy = 0;  // top of screen
+                enermy[i].tx = (build[targetIdx].left + build[targetIdx].right) / 2;
+                enermy[i].ty = build[targetIdx].top;
+                
+                // World coordinates for 3D
+                enermy[i].x = sx;
+                enermy[i].y = sy;
+                enermy[i].z = sz;
+                enermy[i].dx = dx / len * speed;
+                enermy[i].dy = dy / len * speed;
+                enermy[i].dz = dz / len * speed;
+                
                 enermy[i].expl = false;
                 enermy[i].alive = true;
                 enermy[i].r = 2;
@@ -227,16 +262,24 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     private void init_build(int cnt) {
-        int padding = 10;
-        int buildtop = height - buildHeight;
+        // World coordinates: X from -10 to 10, ground at Y = -3.0
+        float WORLD_WIDTH = 20.0f;
+        float GROUND_Y = -3.0f;
+        
+        float spacing = WORLD_WIDTH / cnt;
+        float startX = -WORLD_WIDTH / 2 + spacing / 2;
+        
         for (int i = 0; i < cnt; i++) {
-            build[i].left = (padding + buildWidth) * i;
-            build[i].top = buildtop;
+            // Convert to screen coordinates for 2D rendering
+            build[i].left = (int)((padding + buildWidth) * i);
+            build[i].top = height - buildHeight;
             build[i].right = build[i].left + buildWidth;
             build[i].bottom = height;
             build[i].alive = true;
             build[i].isbuild = true;
         }
+        
+        // Middle one is the launcher
         build[cnt / 2].isbuild = false;
         build[cnt / 2].top = height - launcherHeight;
     }
@@ -258,8 +301,13 @@ public class MissileCmd3D extends SDLMMFrame {
         for (int i = 0; i < maxMissile; i++) {
             if (!launchedMissile[i].active) continue;
             if (!launchedMissile[i].expl) {
-                if ((int)(launchedMissile[i].tx - launchedMissile[i].x) == 0 && 
-                    (int)(launchedMissile[i].ty - launchedMissile[i].y) == 0) {
+                // Check if reached target in world coordinates
+                float dx = launchedMissile[i].tx - launchedMissile[i].x;
+                float dy = launchedMissile[i].ty - launchedMissile[i].y;
+                float dz = launchedMissile[i].tz - launchedMissile[i].z;
+                float dist = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+                
+                if (dist < 0.5f) {  // Close enough to target in world units
                     launchedMissile[i].expl = true;
                 }
                 launchedMissile[i].x += launchedMissile[i].dx;
@@ -308,16 +356,24 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     private void render3D() {
-        // Update camera
-        cameraAngle += 0.01f;
-        camera.Position = new Vector3(
-            (float)(400 + 400 * Math.sin(cameraAngle)),
-            (float)(300 + 200 * Math.cos(cameraAngle * 2)),
-            -800
-        );
-        camera.Target = new Vector3(400, 300, 0);
+        // Update camera matching ref-sdlmm spherical coordinates
+        cameraAngle += 0.005f;
+        float camDist = 25.0f;
+        float camAngleX = 0.4f;  // Fixed vertical angle
+        float camAngleY = cameraAngle;  // Rotating horizontal angle
         
-        // Update mesh positions
+        camera.Position = new Vector3(
+            (float)(camDist * Math.sin(camAngleY) * Math.cos(camAngleX)),
+            (float)(camDist * Math.sin(camAngleX)),
+            (float)(-camDist * Math.cos(camAngleY) * Math.cos(camAngleX))
+        );
+        camera.Target = new Vector3(0, 2, 0);  // Look at center, slightly above ground
+        
+        // World coordinates
+        float WORLD_WIDTH = 20.0f;
+        float GROUND_Y = -3.0f;
+        
+        // Update enemy missile positions (using world coordinates)
         for (int i = 0; i < 20; i++) {
             if (enermy[i].alive) {
                 enemyMissileMeshes[i].Position = new Vector3(enermy[i].x, enermy[i].y, enermy[i].z);
@@ -326,6 +382,7 @@ public class MissileCmd3D extends SDLMMFrame {
             }
         }
         
+        // Update our missile positions (using world coordinates)
         for (int i = 0; i < maxMissile; i++) {
             if (launchedMissile[i].active) {
                 launchedMissileMeshes[i].Position = new Vector3(
@@ -335,12 +392,25 @@ public class MissileCmd3D extends SDLMMFrame {
             }
         }
         
+        // Update building positions (world coordinates)
+        float spacing = WORLD_WIDTH / MAX_BUILD;
+        float startX = -WORLD_WIDTH / 2 + spacing / 2;
         for (int i = 0; i < MAX_BUILD; i++) {
-            buildingMeshes[i].Position = new Vector3(
-                (build[i].left + build[i].right) / 2,
-                (build[i].top + build[i].bottom) / 2,
-                0
-            );
+            float buildX = startX + i * spacing;
+            float buildY = GROUND_Y + 1.0f;  // buildings sit on ground
+            if (!build[i].isbuild) {
+                buildY = GROUND_Y + 0.6f;  // launcher is shorter
+            }
+            buildingMeshes[i].Position = new Vector3(buildX, buildY, 0);
+            
+            // Scale buildings appropriately
+            if (build[i].isbuild) {
+                // Regular building: 1.5 x 2.0 x 1.5
+                buildingMeshes[i].Rotation = new Vector3(0, 0, 0);
+            } else {
+                // Launcher: 1.0 x 1.2 x 1.0 (smaller)
+                buildingMeshes[i].Rotation = new Vector3(0, 0, 0);
+            }
         }
         
         // Combine all meshes for rendering
@@ -398,21 +468,43 @@ public class MissileCmd3D extends SDLMMFrame {
         if (remainMissile <= 0) return;
         for (int i = 0; i < maxMissile; i++) {
             if (!launchedMissile[i].active) {
-                int sx = build[2].left + 32;
-                int sy = build[2].top;
-                float dx = ((float)(mx - sx)) / 50;
-                float dy = ((float)(my - sy)) / 50;
+                // World coordinates
+                float WORLD_WIDTH = 20.0f;
+                float GROUND_Y = -3.0f;
+                
+                // Launcher position (middle building in world coords)
+                float spacing = WORLD_WIDTH / MAX_BUILD;
+                float startX = -WORLD_WIDTH / 2 + spacing / 2;
+                float launcherX = startX + (MAX_BUILD / 2) * spacing;
+                float launcherY = GROUND_Y + 0.6f;
+                float launcherZ = 0;
+                
+                // Convert mouse screen coordinates to world coordinates
+                // Simple mapping: screen X [0, width] -> world X [-10, 10]
+                //                 screen Y [0, height] -> world Y [10, -3]
+                float tx = (mx / (float)width) * WORLD_WIDTH - WORLD_WIDTH / 2;
+                float ty = 10.0f - (my / (float)height) * 13.0f;  // Map screen Y to world Y (10 to -3)
+                float tz = 0;  // Target on z=0 plane
+                
+                // Calculate velocity
+                float dx = tx - launcherX;
+                float dy = ty - launcherY;
+                float dz = tz - launcherZ;
+                float len = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (len < 0.001f) len = 1.0f;
+                float speed = 0.5f;
+                
                 launchedMissile[i].active = true;
-                launchedMissile[i].x = sx;
-                launchedMissile[i].y = sy;
-                launchedMissile[i].z = 0;
+                launchedMissile[i].x = launcherX;
+                launchedMissile[i].y = launcherY;
+                launchedMissile[i].z = launcherZ;
                 launchedMissile[i].r = 3;
-                launchedMissile[i].tx = mx;
-                launchedMissile[i].ty = my;
-                launchedMissile[i].tz = 0;
-                launchedMissile[i].dx = dx;
-                launchedMissile[i].dy = dy;
-                launchedMissile[i].dz = 0;
+                launchedMissile[i].tx = (int)tx;  // Store for compatibility
+                launchedMissile[i].ty = (int)ty;
+                launchedMissile[i].tz = (int)tz;
+                launchedMissile[i].dx = dx / len * speed;
+                launchedMissile[i].dy = dy / len * speed;
+                launchedMissile[i].dz = dz / len * speed;
                 launchedMissile[i].expl = false;
                 remainMissile--;
                 break;
