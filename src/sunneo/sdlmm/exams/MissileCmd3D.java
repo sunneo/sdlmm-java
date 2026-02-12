@@ -444,6 +444,23 @@ public class MissileCmd3D extends SDLMMFrame {
             remainEnermy = 40;
             remainGenEnermy = 40;
             remainMissile = 45;
+            
+            // Clear all enemy and missile arrays (matching ref-sdlmm memset)
+            for (int i = 0; i < 20; i++) {
+                enermy[i].alive = false;
+                enermy[i].expl = false;
+                enermy[i].ishit = false;
+                enermy[i].x = 0;
+                enermy[i].y = 0;
+                enermy[i].z = 0;
+            }
+            for (int i = 0; i < maxMissile; i++) {
+                launchedMissile[i].active = false;
+                launchedMissile[i].expl = false;
+                launchedMissile[i].x = 0;
+                launchedMissile[i].y = 0;
+                launchedMissile[i].z = 0;
+            }
         }
     }
     
