@@ -67,4 +67,42 @@ public class Texture {
         }
         return 0xFFFFFFFF;
     }
+
+    /**
+     * Create a Gaussian texture for particle sprites
+     * Uses Hermite interpolation for smooth falloff
+     * @param size Texture size (width and height)
+     * @return Texture with Gaussian gradient
+     */
+    public static Texture createGaussian(int size) {
+        Texture tex = new Texture(size, size);
+        
+        float center = size / 2.0f;
+        float maxDist = size / 2.0f;
+        
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                float dx = x - center;
+                float dy = y - center;
+                float dist = (float)Math.sqrt(dx * dx + dy * dy) / maxDist;
+                
+                if (dist > 1.0f) dist = 1.0f;
+                
+                // Hermite interpolation for smooth falloff
+                float t = dist;
+                float u2 = t * t;
+                float u3 = u2 * t;
+                float B0 = 2 * u3 - 3 * u2 + 1;  // Hermite basis
+                
+                float intensity = B0;
+                if (intensity < 0.0f) intensity = 0.0f;
+                
+                // Store as grayscale with alpha
+                int alpha = (int)(intensity * 255.0f);
+                tex.internalBuffer[y * size + x] = (alpha << 24) | (alpha << 16) | (alpha << 8) | alpha;
+            }
+        }
+        
+        return tex;
+    }
 }
