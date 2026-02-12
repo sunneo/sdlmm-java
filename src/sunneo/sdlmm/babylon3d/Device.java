@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import sunneo.sdlmm.interfaces.SDLMMInterface;
 
 /**
  * 3D Rendering Device for Babylon3D engine
@@ -368,7 +369,7 @@ public class Device {
         Vector3 up = Vector3.up();
         Matrix viewMatrix = Matrix.lookAtLH(camera.Position, camera.Target, up);
         Matrix projectionMatrix = Matrix.perspectiveFovLH(0.78f, 
-            (float) workingWidth / workingHeight, 0.01f, 1.0f);
+            (float) workingWidth / workingHeight, 0.01f, 1000.0f);
 
         Vector3 lightPos = lightPosition != null ? lightPosition : new Vector3(0, 10, 10);
 
@@ -413,5 +414,148 @@ public class Device {
      */
     public void render(Camera camera, Mesh mesh, Vector3 lightPosition) {
         render(camera, new Mesh[] { mesh }, lightPosition);
+    }
+
+    /**
+     * Draw a single point sprite with texture and optional additive blending
+     */
+    public void drawPointSprite(Vector3 position, float size, Texture texture, int color, boolean additive) {
+        if (position == null || texture == null) return;
+        
+        int cx = (int)position.x;
+        int cy = (int)position.y;
+        int halfSize = (int)(size / 2.0f);
+        
+        // Extract color components
+        int baseR = (color >> 16) & 0xFF;
+        int baseG = (color >> 8) & 0xFF;
+        int baseB = color & 0xFF;
+        
+        // Draw textured quad centered on particle position
+        for (int dy = -halfSize; dy <= halfSize; dy++) {
+            for (int dx = -halfSize; dx <= halfSize; dx++) {
+                int px = cx + dx;
+                int py = cy + dy;
+                
+                // Bounds check
+                if (px < 0 || py < 0 || px >= workingWidth || py >= workingHeight) {
+                    continue;
+                }
+                
+                // Sample texture
+                int tx = (int)(((float)(dx + halfSize) / size) * texture.width);
+                int ty = (int)(((float)(dy + halfSize) / size) * texture.height);
+                
+                if (tx < 0) tx = 0;
+                if (ty < 0) ty = 0;
+                if (tx >= texture.width) tx = texture.width - 1;
+                if (ty >= texture.height) ty = texture.height - 1;
+                
+                int texColor = texture.internalBuffer[ty * texture.width + tx];
+                int texAlpha = (texColor >> 24) & 0xFF;
+                
+                if (texAlpha == 0) continue;
+                
+                // Apply texture intensity to base color
+                float intensity = texAlpha / 255.0f;
+                int r = (int)(baseR * intensity);
+                int g = (int)(baseG * intensity);
+                int b = (int)(baseB * intensity);
+                
+                int idx = py * workingWidth + px;
+                
+                if (additive) {
+                    // Additive blending
+                    int bgColor = backbuffer[idx];
+                    int bgR = (bgColor >> 16) & 0xFF;
+                    int bgG = (bgColor >> 8) & 0xFF;
+                    int bgB = bgColor & 0xFF;
+                    
+                    r = bgR + r; if (r > 255) r = 255;
+                    g = bgG + g; if (g > 255) g = 255;
+                    b = bgB + b; if (b > 255) b = 255;
+                }
+                
+                backbuffer[idx] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+        }
+    }
+
+    /**
+     * Render multiple particles with camera projection
+     */
+    public void renderParticles(Camera camera, Vector3[] positions, int[] colors, 
+                                int particleCount, float spriteSize, Texture spriteTexture, boolean additive) {
+        if (camera == null || positions == null || spriteTexture == null) return;
+        
+        // Build view and projection matrices
+        Vector3 up = Vector3.up();
+        Matrix viewMatrix = Matrix.lookAtLH(camera.Position, camera.Target, up);
+        Matrix projectionMatrix = Matrix.perspectiveFovLH(0.78f, 
+            (float)workingWidth / (float)workingHeight, 0.01f, 1000.0f);
+        Matrix viewProj = viewMatrix.multiply(projectionMatrix);
+        
+        // Render each particle
+        for (int i = 0; i < particleCount && i < positions.length; i++) {
+            Vector3 worldPos = positions[i];
+            
+            // Transform to view space first to get actual distance
+            Vector3 viewPos = worldPos.transformCoordinates(viewMatrix);
+            
+            // In LH system, positive Z is forward from camera
+            // Skip particles behind camera or too close
+            if (viewPos.z <= 0.1f) continue;
+            
+            // Transform to clip space (already includes perspective divide)
+            Vector3 clipPos = worldPos.transformCoordinates(viewProj);
+            
+            // clipPos is now in NDC space (-1 to 1)
+            // Check if roughly on screen (with some margin for large sprites)
+            if (clipPos.x < -2.0f || clipPos.x > 2.0f || clipPos.y < -2.0f || clipPos.y > 2.0f) {
+                continue;
+            }
+            
+            // Project to screen space
+            float screenX = (clipPos.x + 1.0f) * 0.5f * workingWidth;
+            float screenY = (1.0f - clipPos.y) * 0.5f * workingHeight;
+            
+            // Scale sprite size based on distance (perspective)
+            // Larger distance = smaller sprite
+            float distScale = 50.0f / viewPos.z;  // Adjusted: base size at distance 50
+            float finalSize = spriteSize * distScale;
+            
+            // Clamp size for visibility and performance
+            if (finalSize < 3.0f) finalSize = 3.0f;
+            if (finalSize > 80.0f) finalSize = 80.0f;
+            
+            Vector3 screenPos = new Vector3(screenX, screenY, viewPos.z);
+            int particleColor = (colors != null && i < colors.length) ? colors[i] : 0xFFFFFF;
+            
+            drawPointSprite(screenPos, finalSize, spriteTexture, particleColor, additive);
+        }
+    }
+
+    /**
+     * Present the backbuffer to screen using the provided rendering interface
+     * This is the primary method for displaying the rendered content
+     * 
+     * @param screen The SDLMMInterface to draw to (typically the application window)
+     */
+    public void presentToScreen(SDLMMInterface screen) {
+        if (screen == null) {
+            return;
+        }
+        // Use bulk copy operation for optimal performance
+        screen.drawPixels(backbuffer, 0, 0, workingWidth, workingHeight);
+    }
+
+    /**
+     * Present the backbuffer to screen (legacy compatibility method)
+     * Note: This method requires a screen interface to be set separately.
+     * Consider using presentToScreen(SDLMMInterface) instead.
+     */
+    public void present() {
+        // Legacy no-op method for C compatibility
+        // Users should call presentToScreen(screen) to actually display content
     }
 }
