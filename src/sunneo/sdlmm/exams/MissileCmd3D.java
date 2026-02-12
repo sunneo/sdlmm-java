@@ -298,12 +298,50 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     /**
+     * Create billboard quad (flat rectangle always facing camera)
+     */
+    private Mesh createBillboardQuad(float width, float height) {
+        Mesh mesh = new Mesh("billboard", 4, 2);
+        
+        float hw = width * 0.5f;
+        float hh = height * 0.5f;
+        
+        // Create quad vertices (centered at origin)
+        mesh.Vertices[0].Coordinates = new Vector3(-hw, -hh, 0);
+        mesh.Vertices[1].Coordinates = new Vector3(hw, -hh, 0);
+        mesh.Vertices[2].Coordinates = new Vector3(-hw, hh, 0);
+        mesh.Vertices[3].Coordinates = new Vector3(hw, hh, 0);
+        
+        // Normals face forward (will be oriented toward camera)
+        Vector3 normal = new Vector3(0, 0, 1);
+        for (int i = 0; i < 4; i++) {
+            mesh.Vertices[i].Normal = normal;
+            mesh.Vertices[i].WorldCoordinates = Vector3.zero();
+        }
+        
+        // Texture coordinates
+        mesh.Vertices[0].TextureCoordinates = new Vector3(0, 1, 0);
+        mesh.Vertices[1].TextureCoordinates = new Vector3(1, 1, 0);
+        mesh.Vertices[2].TextureCoordinates = new Vector3(0, 0, 0);
+        mesh.Vertices[3].TextureCoordinates = new Vector3(1, 0, 0);
+        
+        // Create two triangles
+        mesh.faces[0].A = 0; mesh.faces[0].B = 1; mesh.faces[0].C = 2;
+        mesh.faces[1].A = 1; mesh.faces[1].B = 3; mesh.faces[1].C = 2;
+        
+        mesh.Position = Vector3.zero();
+        mesh.Rotation = Vector3.zero();
+        
+        return mesh;
+    }
+    
+    /**
      * Initialize scene meshes matching reference
      */
     private void initSceneMeshes() {
         // Ground plane
         groundMesh = createScaledCube(WORLD_WIDTH + 4, 0.3f, WORLD_DEPTH + 4);
-        groundMesh.texture = generateGlowTexture(0x403020);
+        groundMesh.texture = generateGlowTexture(0x402010);  // Darker brown
         
         // Enemy explosion sphere
         explSphere = Mesh.createSphere(1.0f, 5, 3);
@@ -321,14 +359,15 @@ public class MissileCmd3D extends SDLMMFrame {
         ourMissileSphere = Mesh.createSphere(0.15f, 4, 3);
         ourMissileSphere.texture = generateGlowTexture(0xe0e0ff);
         
-        // Building meshes
-        buildingMesh = createScaledCube(1.5f, 2.0f, 1.5f);
+        // Building meshes - USE BILLBOARDS not cubes
+        buildingMesh = createBillboardQuad(2.0f, 3.0f);  // Flat billboard
         buildingMesh.texture = generateGlowTexture(0x6080a0);
         
-        destroyedMesh = createScaledCube(1.5f, 0.5f, 1.5f);
+        destroyedMesh = createBillboardQuad(2.0f, 1.0f);  // Shorter billboard
         destroyedMesh.texture = generateGlowTexture(0x804020);
         
-        launcherMesh = createScaledCube(1.0f, 1.2f, 1.0f);
+        // Launcher mesh - also a billboard
+        launcherMesh = createBillboardQuad(1.5f, 2.0f);  // Flat billboard
         launcherMesh.texture = generateGlowTexture(0x60a060);
         
         // Create particle textures
@@ -764,6 +803,22 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     /**
+     * Create billboard mesh at position that faces camera
+     */
+    private Mesh billboardAt(Mesh template, Vector3 pos, Camera camera) {
+        Mesh copy = meshAt(template, pos);
+        
+        // Calculate rotation to face camera
+        Vector3 toCamera = camera.Position.subtract(pos);
+        float angleY = (float)Math.atan2(toCamera.x, toCamera.z);
+        
+        // Set Y rotation to face camera
+        copy.Rotation = new Vector3(0, angleY, 0);
+        
+        return copy;
+    }
+    
+    /**
      * Draw the complete 3D scene matching reference
      */
     private void drawScene() {
@@ -802,16 +857,16 @@ public class MissileCmd3D extends SDLMMFrame {
         // Ground plane
         renderMeshes.add(meshAt(groundMesh, new Vector3(0, GROUND_Y - 0.15f, 0)));
         
-        // Buildings and launcher
+        // Buildings and launcher - use billboards that face camera
         for (int i = 0; i < MAX_BUILD; i++) {
             if (builds[i].isbuild) {
                 if (builds[i].alive) {
-                    renderMeshes.add(meshAt(buildingMesh, builds[i].pos));
+                    renderMeshes.add(billboardAt(buildingMesh, builds[i].pos, camera));
                 } else {
-                    renderMeshes.add(meshAt(destroyedMesh, builds[i].pos));
+                    renderMeshes.add(billboardAt(destroyedMesh, builds[i].pos, camera));
                 }
             } else {
-                renderMeshes.add(meshAt(launcherMesh, builds[i].pos));
+                renderMeshes.add(billboardAt(launcherMesh, builds[i].pos, camera));
             }
         }
         
