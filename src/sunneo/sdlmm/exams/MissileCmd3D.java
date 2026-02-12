@@ -43,7 +43,7 @@ public class MissileCmd3D extends SDLMMFrame {
     private int remainMissile = 45;
     private int remainGenEnemy = 40;
     private int remainEnemy = 40;
-    private int showhelp = 1;
+    private int showHelp = 1;
     private volatile int mx = width / 2;
     private volatile int my = height / 2;
     
@@ -911,7 +911,7 @@ public class MissileCmd3D extends SDLMMFrame {
         drawString(buf, 5, 25, 0xffffff);
         buf = String.format("Enemy:%03d/%03d", remainEnemy, remainGenEnemy);
         drawString(buf, width - 200, 5, 0xffffff);
-        if (showhelp == 1) {
+        if (showHelp == 1) {
             drawString("[click]fire [wheel]zoom [h]help", 5, height - 25, 0xaaaaaa);
         }
         
@@ -956,7 +956,7 @@ public class MissileCmd3D extends SDLMMFrame {
             switch (key) {
                 case 'h':
                 case 'H':
-                    showhelp = 1 - showhelp;
+                    showHelp = 1 - showHelp;
                     break;
                 case '+':
                 case '=':

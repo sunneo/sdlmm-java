@@ -322,7 +322,7 @@ public class Matrix {
 
         det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
 
-        if (det == 0) {
+        if (Math.abs(det) < 1e-10f) {
             // Can't invert - return identity
             for (i = 0; i < 16; i++) {
                 m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
