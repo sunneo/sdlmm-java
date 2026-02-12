@@ -169,8 +169,8 @@ public class Babylon3DSceneViewer extends SDLMMFrame {
             device.render(camera, meshes, lightPosition);
         }
         
-        // Present to screen
-        drawPixels(device.backbuffer, 0, 0, width, height);
+        // Present to screen using Babylon3D API
+        device.presentToScreen(this);
         
         // Draw info
         fillRect(0, 0, 250, 40, 0xFF000000);

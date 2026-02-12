@@ -63,8 +63,8 @@ public class Babylon3DCube extends SDLMMFrame {
             // Render the mesh
             device.render(camera, cubeMesh, null);
 
-            // Present to screen
-            drawPixels(device.backbuffer, 0, 0, WIDTH, HEIGHT);
+            // Present to screen using Babylon3D API
+            device.presentToScreen(this);
             
             // Draw FPS
             fillRect(0, 0, 100, 20, 0xFF000000);

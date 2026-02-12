@@ -352,16 +352,8 @@ public class MissileCmd3D extends SDLMMFrame {
         device.clear();
         device.render(camera, allMeshes, lightPosition);
         
-        // Copy buffer to screen
-        int[] backbuffer = device.backbuffer;
-        for (int y = 0; y < height && y < device.workingHeight; y++) {
-            for (int x = 0; x < width && x < device.workingWidth; x++) {
-                int idx = y * device.workingWidth + x;
-                if (idx < backbuffer.length) {
-                    drawPixel(x, y, backbuffer[idx]);
-                }
-            }
-        }
+        // Present rendered backbuffer to screen using Babylon3D API
+        device.presentToScreen(this);
     }
     
     private void reinit() {
