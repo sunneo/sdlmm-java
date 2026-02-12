@@ -235,4 +235,83 @@ public class Mesh {
 
         return cubeMesh;
     }
+
+    /**
+     * Create a sphere mesh with specified subdivisions
+     * @param radius Radius of the sphere
+     * @param segments Number of horizontal segments (longitude)
+     * @param rings Number of vertical rings (latitude)
+     * @return Sphere mesh
+     */
+    public static Mesh createSphere(float radius, int segments, int rings) {
+        // Calculate vertex and face counts
+        int vertexCount = (rings + 1) * (segments + 1);
+        int faceCount = rings * segments * 2;
+        
+        Mesh sphereMesh = new Mesh("Sphere", vertexCount, faceCount);
+        
+        int vertexIndex = 0;
+        
+        // Generate vertices
+        for (int ring = 0; ring <= rings; ring++) {
+            float phi = (float)(Math.PI * ring) / rings;
+            float y = radius * (float)Math.cos(phi);
+            float ringRadius = radius * (float)Math.sin(phi);
+            
+            for (int seg = 0; seg <= segments; seg++) {
+                float theta = (float)(2.0 * Math.PI * seg) / segments;
+                float x = ringRadius * (float)Math.cos(theta);
+                float z = ringRadius * (float)Math.sin(theta);
+                
+                Vertex v = sphereMesh.Vertices[vertexIndex];
+                v.Coordinates = new Vector3(x, y, z);
+                
+                // Normal is normalized position for a sphere centered at origin
+                Vector3 normal = new Vector3(x, y, z);
+                normal = normal.normalize();
+                v.Normal = normal;
+                
+                // Texture coordinates
+                float u = (float)seg / segments;
+                float vCoord = (float)ring / rings;
+                v.TextureCoordinates = new Vector3(u, vCoord, 0);
+                
+                v.WorldCoordinates = Vector3.zero();
+                
+                vertexIndex++;
+            }
+        }
+        
+        // Generate faces
+        int faceIndex = 0;
+        for (int ring = 0; ring < rings; ring++) {
+            for (int seg = 0; seg < segments; seg++) {
+                int current = ring * (segments + 1) + seg;
+                int next = current + segments + 1;
+                
+                // First triangle
+                sphereMesh.faces[faceIndex] = new Face(current, next, current + 1);
+                faceIndex++;
+                
+                // Second triangle
+                sphereMesh.faces[faceIndex] = new Face(current + 1, next, next + 1);
+                faceIndex++;
+            }
+        }
+        
+        // Set initial position
+        sphereMesh.Position = new Vector3(0, 0, 10);
+        sphereMesh.Rotation = Vector3.zero();
+        
+        return sphereMesh;
+    }
+
+    /**
+     * Create a sphere mesh with default subdivisions
+     * @param radius Radius of the sphere
+     * @return Sphere mesh with 16 segments and 16 rings
+     */
+    public static Mesh createSphere(float radius) {
+        return createSphere(radius, 16, 16);
+    }
 }
