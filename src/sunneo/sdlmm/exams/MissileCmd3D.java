@@ -30,6 +30,7 @@ public class MissileCmd3D extends SDLMMFrame {
     private int maxEnemyMissile = 15;
     private volatile int mx = 0;
     private volatile int my = 0;
+    private boolean showHelp = true;  // Show help by default
     
     // 3D components
     private boolean use3DRender = true;
@@ -39,7 +40,11 @@ public class MissileCmd3D extends SDLMMFrame {
     private Mesh[] launchedMissileMeshes;
     private Mesh[] buildingMeshes;
     private Vector3 lightPosition;
-    private float cameraAngle = 0;
+    
+    // Camera control - FIXED angles matching ref-sdlmm
+    private float camDist = 25.0f;
+    private float camAngleX = 0.4f;  // Fixed vertical angle
+    private float camAngleY = 0.0f;  // Fixed horizontal angle (NO auto-rotation!)
     
     static class Missile {
         int fx, fy, tx, ty;
@@ -331,7 +336,18 @@ public class MissileCmd3D extends SDLMMFrame {
         drawString(cscore, 0, 0, 0xffffffff);
         drawString(cmissile, width - 80, 24, 0xffffffff);
         drawString(cenermy, width - 200, 0, 0xffffffff);
-        drawString(use3DRender ? "3D [D]" : "2D [D]", 0, 20, 0xffffffff);
+        
+        // Show help text matching ref-sdlmm
+        if (showHelp) {
+            drawString("[click]fire [+/-]zoom [h]help [d]2D/3D", 5, height - 25, 0xaaaaaa);
+        }
+        
+        // Show crosshair at mouse position
+        if (mx > 0 && my > 0) {
+            int crosshairSize = 10;
+            drawLine(mx - crosshairSize, my, mx + crosshairSize, my, 0xffffffff);
+            drawLine(mx, my - crosshairSize, mx, my + crosshairSize, 0xffffffff);
+        }
     }
     
     private void draw_missile() {
@@ -356,12 +372,8 @@ public class MissileCmd3D extends SDLMMFrame {
     }
     
     private void render3D() {
-        // Update camera matching ref-sdlmm spherical coordinates
-        cameraAngle += 0.005f;
-        float camDist = 25.0f;
-        float camAngleX = 0.4f;  // Fixed vertical angle
-        float camAngleY = cameraAngle;  // Rotating horizontal angle
-        
+        // Camera stays FIXED at these angles (matching ref-sdlmm)
+        // Only camDist changes with mouse wheel zoom
         camera.Position = new Vector3(
             (float)(camDist * Math.sin(camAngleY) * Math.cos(camAngleX)),
             (float)(camDist * Math.sin(camAngleX)),
@@ -538,6 +550,20 @@ public class MissileCmd3D extends SDLMMFrame {
                 case 'd':
                 case 'D':
                     use3DRender = !use3DRender;
+                    break;
+                case 'h':
+                case 'H':
+                    showHelp = !showHelp;
+                    break;
+                case '+':
+                case '=':
+                    // Zoom in (mouse wheel up equivalent)
+                    if (camDist > 8.0f) camDist -= 2.0f;
+                    break;
+                case '-':
+                case '_':
+                    // Zoom out (mouse wheel down equivalent)
+                    if (camDist < 50.0f) camDist += 2.0f;
                     break;
             }
         }
