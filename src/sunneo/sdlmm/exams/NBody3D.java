@@ -328,8 +328,8 @@ public class NBody3D extends SDLMMFrame {
         m_device.renderParticles(camera, particlePositions, particleColors, 
                                SZ, particle_size, particleTexture, true);  // true = additive blending
         
-        // Copy device backbuffer to screen (optimized bulk copy)
-        drawPixels(m_device.backbuffer, 0, 0, SCREENX, SCREENY);
+        // Present the rendered backbuffer to screen using Babylon3D API
+        m_device.presentToScreen(this);
         
         // Draw HUD overlay
         if (showhelp) {

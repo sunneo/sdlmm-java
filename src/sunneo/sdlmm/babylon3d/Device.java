@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import sunneo.sdlmm.interfaces.SDLMMInterface;
 
 /**
  * 3D Rendering Device for Babylon3D engine
@@ -535,10 +536,26 @@ public class Device {
     }
 
     /**
-     * Present the backbuffer to screen (for compatibility with C version)
-     * In Java, this is handled by the rendering framework
+     * Present the backbuffer to screen using the provided rendering interface
+     * This is the primary method for displaying the rendered content
+     * 
+     * @param screen The SDLMMInterface to draw to (typically the application window)
+     */
+    public void presentToScreen(SDLMMInterface screen) {
+        if (screen == null) {
+            return;
+        }
+        // Use bulk copy operation for optimal performance
+        screen.drawPixels(backbuffer, 0, 0, workingWidth, workingHeight);
+    }
+
+    /**
+     * Present the backbuffer to screen (legacy compatibility method)
+     * Note: This method requires a screen interface to be set separately.
+     * Consider using presentToScreen(SDLMMInterface) instead.
      */
     public void present() {
-        // No-op in Java version - backbuffer is already accessible
+        // Legacy no-op method for C compatibility
+        // Users should call presentToScreen(screen) to actually display content
     }
 }
