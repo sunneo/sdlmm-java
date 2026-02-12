@@ -328,16 +328,8 @@ public class NBody3D extends SDLMMFrame {
         m_device.renderParticles(camera, particlePositions, particleColors, 
                                SZ, particle_size, particleTexture, true);  // true = additive blending
         
-        // Copy device backbuffer to screen
-        int[] backbuffer = m_device.backbuffer;
-        for (int y = 0; y < SCREENY; y++) {
-            for (int x = 0; x < SCREENX; x++) {
-                int idx = y * SCREENX + x;
-                if (idx < backbuffer.length) {
-                    drawPixel(x, y, backbuffer[idx]);
-                }
-            }
-        }
+        // Copy device backbuffer to screen (optimized bulk copy)
+        drawPixels(m_device.backbuffer, 0, 0, SCREENX, SCREENY);
         
         // Draw HUD overlay
         if (showhelp) {
