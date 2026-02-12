@@ -369,7 +369,7 @@ public class Device {
         Vector3 up = Vector3.up();
         Matrix viewMatrix = Matrix.lookAtLH(camera.Position, camera.Target, up);
         Matrix projectionMatrix = Matrix.perspectiveFovLH(0.78f, 
-            (float) workingWidth / workingHeight, 0.01f, 1.0f);
+            (float) workingWidth / workingHeight, 0.01f, 1000.0f);
 
         Vector3 lightPos = lightPosition != null ? lightPosition : new Vector3(0, 10, 10);
 
